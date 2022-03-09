@@ -1,0 +1,40 @@
+Il utilise la ligne de commande psysh pour generer les premiers pins.
+Premierement installation : compooser require theofidry/psysh-bundle --devs
+Maitenant une commande psysh est disponible
+php bin/console psysh : la console s'allume
+==>>> Ctr + D ou exit() pour quitter
+Dedans on fait : ls ( voir les variables ) On va utiliser principalement $container
+On fait :
+
+use App\Entity\Pin;
+$em = $container->get('doctrine')->getManager();
+
+$p1 = new Pin;
+$p1->setTitle('pin1')
+$p1->setDescription('description1')
+$em->persist($p1)
+$em->flush()
+
+$p2 = new Pin;
+$p2->setTitle('pin2')
+$p2->setDescription('description2')
+$em->persist($p2)
+$em->flush()
+
+use App\Entity\Pin;
+$em = $container->get('doctrine')->getManager();
+
+$p3 = new Pin;
+$p3->setTitle('pin3')
+$p3->setDescription('description3')
+$em->persist($p3)
+$em->flush()
+
+$p1 = $em->getRepository(Pin::class)->find(8)
+
+$p4 = new Pin;
+$p4->setTitle('pin4')
+$p4->setDescription('description4')
+$em->persist($p4)
+$em->flush()
+

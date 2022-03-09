@@ -1,0 +1,13 @@
+{{ form_start(form) }}
+    {{ form_widget (form) }}
+    <input type="submit" value=" {{ submitButtonText }}" formnovalidate class="btn btn-primary w-100">
+    {#
+        formnovalidate permet de desactiver la validation HTML5 coté client. Il est indispensable de
+        l'utiliser en dev ( pas en prod ! ) pour verifier la validation coté serveur.
+
+        Soit on définit avant chaque formulaire une variable submitButtonText. Soit on définit une valeur par
+        default ici : value=" {{ submitButtonText|default('Create Pin') }}" et on définira la valeur dans les cas
+        où elle n'est pas égale à celle par défault.
+        {{ submitButtonText|default('Create Pin') }} === {{ submitButtonText ?? 'Create Pin' }}
+    #}
+{{ form_end(form) }}

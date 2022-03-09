@@ -1,0 +1,20 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block title 'New Pin' %}
+
+{% block body %}
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <h1> Create Pin </h1>
+            {{ include('layouts/partials/_form.html.twig', {'submitButtonText' : 'Create Pin'}) }}
+        </div>
+    </div>
+{% endblock %}
+
+{#
+    Afin de styliser nos form, on a importer un design Bootstrap Form dans Twig.
+    Il faut pour cela installer Bootstrap avant puis dans :
+    https://symfony.com/doc/current/form/form_themes.html
+    Choisir le theme voulu et lire comment rajouter la configuration :
+    config -> package -> twig.yalm:twig:form_themes ...
+#}

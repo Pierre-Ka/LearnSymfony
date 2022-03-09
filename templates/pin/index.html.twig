@@ -1,0 +1,35 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block title 'Find all the pins' %}
+
+{% block body %}
+
+    {#
+        On va créer notre propre fonction Twig et la nommer Pluralize. Pour cela on va utiliser la commande :
+        make:twig-extension
+        Puis on appelera notre classe AppExtension qui se trouvera alors dans src/Twig/AppExtension.php
+    #}
+    <h1> {{ pluralize(pins|length, 'Pin', 'Pins') }}</h1>
+
+    {% for pin in pins %}
+        <article>
+            <h2> <a href=" {{ path('app_pins_show', {id: pin.id}) }}"> {{ pin.title }} </a> </h2>
+
+            {#
+                Lors de l'utilisation du filtre u.truncate on a une erreur :
+                The "u" filter is part of the StringExtension, which is not installed/enabled; on fait :
+                composer require twig/string-extra
+                truncate prend en argument le nombre de caractère, la fin du truncate et wordcut : true or false
+            #}
+            <p> {{ pin.description|u.truncate(15, '...', true) }}</p>
+
+            {#
+                Les dates erronés peuvent provenir d'une date.timezone mal configurée dans php.ini.
+                La manière classique d'afficher la date est d'utiliser le filtre |date :
+                Ici on souhaite un affichage du style : created 9 minutes ago. On va installer un package externe :
+                composer require knplabs/knp-time-bundle
+            #}
+            <p>Submitted {{ pin.createdAt|ago }}</p>
+        </article>
+    {% endfor %}
+{% endblock %}

@@ -1,0 +1,59 @@
+/*
+    Integration de la police d'écriture :
+    selectionner sur : https://fonts.google.com/specimen/Montserrat
+    Voici le lien original :
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    Que l'on transforme en :
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat&display=swap" rel="stylesheet">
+    Puis finalement dans le CSS : avec @import url('');
+ */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat&display=swap');
+
+/*
+    Avec Sass on peut importer et utiliser des variables.
+*/
+@import 'shared/_variables.scss';
+
+/*
+    Integration de Bootstrap :
+    code de : https://symfony.com/doc/current/frontend/encore/bootstrap.html
+    Après avoir installer bootsrap avec Webpack ( yarn add bootsrap --dev ) on l'importe dans nos fichiers
+    avec @import :
+    On pourrait egalement customiser certaines variables Bootstrap : ex :
+    $secondary: darken(#428bca, 20%);
+    darken() est une fonction sass qui permet d'avoir une fonction dark de la couleur ( ici à 20% )
+    Le ~ fait reference à node_modules/
+ */
+@import "~bootstrap/scss/bootstrap";
+
+body {
+    background-color: lightgray;
+}
+html, body {
+    font-family: $primary-font, sans-serif;
+}
+
+.alert {
+    padding: 10px;
+    color: white;
+    text-align:center;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+
+    /*
+        Avec Sass , & fait référence à l'element ou vous vous trouvez (element parent) donc :
+        &.alert-success = .alert.alert-success
+    */
+    &.alert-success {
+         background-color : green;
+     }
+    &.alert-error {
+        background-color : red;
+    }
+    &.alert-info {
+        background-color : blue;
+    }
+}
+
+

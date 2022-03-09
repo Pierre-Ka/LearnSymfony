@@ -1,0 +1,39 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block title pin.title %}
+
+{% block body %}
+    <article>
+        <h1> {{ pin.title }}</h1>
+        <p> {{ pin.description }}</p>
+    </article>
+    <a href=" {{ path('app_pins_edit', {id: pin.id}) }}">Edit</a> |
+
+    {#
+        Mise en place d'un lien Delete sécurisé :
+        On va relier notre lien à un formulaire caché (display:none;).
+        Il va falloir pour cela utiliser un peu de Javascript.
+        Premierement il faut comprendre les alert() :
+        <a href="https://google.com" onclick="alert('cool')">Delete</a>
+        Cela va ouvrir un Pop-Up et si on clic sur OK on est réorienté sur Google
+        L'attribut event.preventDefault(); permet de dire : ce que tu fais par default ne le fait pas. Donc :
+        <a href="https://google.com" onclick="event.preventDefault();  alert('cool')">Delete</a>
+        Pareil mais lorqu'on clic sur OK on est pas redirigé.
+        l'utilisation du && : Soit 1 && 2 . Si 1 est vrai il va faire 2. Si 1 est faux il ne va pas faire 2
+        document.getElementById('truc').submit() signifie qu'il va chercher dans le document ce qui
+        a pour Id 'truc' et il va le soumettre
+    #}
+    <a href="#"
+       onclick="event.preventDefault(); confirm('Are you sure ?') && document.getElementById('js-pin-delete-form').submit() ">
+        Delete</a>
+
+    <form id="js-pin-delete-form" method="post" action="{{ path('app_pins_delete', {id: pin.id}) }}" style="display:none;">
+        <input type="text" name="_method" value="DELETE"/>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token('pin' ~ pin.id) }}"/>
+        {#
+            Comme le formulaire est soumis automatiquement au clic de OK de la Pop-Up "Are you sure?",
+            on a pas besoin de mettre de bouton.
+        #}
+    </form>
+
+{% endblock %}

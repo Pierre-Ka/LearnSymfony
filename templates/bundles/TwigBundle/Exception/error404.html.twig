@@ -1,0 +1,14 @@
+{#
+    Code copier depuis Symfony Docs : Custom Error Page : Example 404 Error Template
+    https://symfony.com/doc/current/controller/error_pages.html
+#}
+{% extends 'layouts/base.html.twig' %}
+
+{% block body %}
+    <h1>Page not found</h1>
+
+    <p>
+        The requested page couldn't be located. Checkout for any URL
+        misspelling or <a href="{{ path('homepage') }}">return to the homepage</a>.
+    </p>
+{% endblock %}
