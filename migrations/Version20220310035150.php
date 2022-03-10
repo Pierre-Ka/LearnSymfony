@@ -10,25 +10,22 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Auto-generated Migration: Please modify to your needs!
  */
-final class Version20220304054139 extends AbstractMigration
+final class Version20220310035150 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Add createdAt and updatedAt field in Pin table';
+        return 'Add image name to Pin table';
     }
 
     public function up(Schema $schema): void
     {
         // this up() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE pin ADD created_at DATETIME DEFAULT CURRENT_TIMESTAMP NULL, ADD updated_at DATETIME NULL');
-        $this->addSql('INSERT INTO pin (created_at) values (NOW())');
-        $this->addSql('ALTER TABLE pin CHANGE created_at created_at DATETIME NOT NULL');
-
+        $this->addSql('ALTER TABLE pin ADD image_name VARCHAR(255) DEFAULT NULL');
     }
 
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE pin DROP created_at, DROP updated_at');
+        $this->addSql('ALTER TABLE pin DROP image_name');
     }
 }

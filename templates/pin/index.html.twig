@@ -3,33 +3,56 @@
 {% block title 'Find all the pins' %}
 
 {% block body %}
+    {% if pins|length > 0 %}
 
-    {#
-        On va créer notre propre fonction Twig et la nommer Pluralize. Pour cela on va utiliser la commande :
-        make:twig-extension
-        Puis on appelera notre classe AppExtension qui se trouvera alors dans src/Twig/AppExtension.php
-    #}
-    <h1> {{ pluralize(pins|length, 'Pin', 'Pins') }}</h1>
+        {#
+            On va créer notre propre fonction Twig et la nommer Pluralize. Pour cela on va utiliser la commande :
+            make:twig-extension
+            Puis on appelera notre classe AppExtension qui se trouvera alors dans src/Twig/AppExtension.php
+        #}
+        <h1 class="mb-4 text-center text-muted"> {{ pluralize(pins|length, 'Pin', 'Pins') }}</h1>
 
-    {% for pin in pins %}
-        <article>
-            <h2> <a href=" {{ path('app_pins_show', {id: pin.id}) }}"> {{ pin.title }} </a> </h2>
+        {#
+            Ici on utilise Bootstrap Grid, simplement notre code est incorrect car on defini un seul row et
+            on met tous nos pin 'col-md-4' dedans. Alors qu'il faudrait définir un row tous les 3 pins.
+            On va faire cela en utilisant le filtre | batch qui veut dire 'lot' :
+            {% for row in pins|batch(3) %} // Tous les 3 pins il va definir un row
+                <div class="row">           // A chaque row il crée un div row
+                    {% for pin in row %}    // Il sort du row chaque pin un par un pour les afficher
+        #}
+        {% for row in pins|batch(3) %}
+            <div class="row mb-5">
+                {% for pin in row %}
+                    <div class="col-md-4">
+                        <article class="pin bg-white rounded shadow" >
+                            <div class="mw-100 overflow-hidden">
+                                <a href="{{ path('app_pins_show', {id: pin.id}) }}">
+                                    {# ********** VICH ***************** #}
+                                    <img src="{{ (pin.imageName ? vich_uploader_asset(pin) : asset('images/placeholder.jpg')) | imagine_filter(
+                                        'mon_filtre_square_miniature_moyenne'
+                                    )}}" alt="{{ pin.title }}" class="w-100 rounded">
+                                    {# ********** VICH ***************** #}
+                                </a>
+                            </div>
+                            <h2 class="h5 pl-5 pt-3" style="padding-left:25px;"> <a href="{{ path('app_pins_show', {id: pin.id}) }}"
+                                   class="text-secondary text-muted text-decoration-none"> {{ pin.title }} </a> </h2>
 
-            {#
-                Lors de l'utilisation du filtre u.truncate on a une erreur :
-                The "u" filter is part of the StringExtension, which is not installed/enabled; on fait :
-                composer require twig/string-extra
-                truncate prend en argument le nombre de caractère, la fin du truncate et wordcut : true or false
-            #}
-            <p> {{ pin.description|u.truncate(15, '...', true) }}</p>
+                            {#
+                            Lors de l'utilisation du filtre u.truncate on a une erreur :
+                            The "u" filter is part of the StringExtension, which is not installed/enabled; on fait :
+                            composer require twig/string-extra
+                            truncate prend en argument le nombre de caractère, la fin du truncate et wordcut : true or false
 
-            {#
-                Les dates erronés peuvent provenir d'une date.timezone mal configurée dans php.ini.
-                La manière classique d'afficher la date est d'utiliser le filtre |date :
-                Ici on souhaite un affichage du style : created 9 minutes ago. On va installer un package externe :
-                composer require knplabs/knp-time-bundle
-            #}
-            <p>Submitted {{ pin.createdAt|ago }}</p>
-        </article>
-    {% endfor %}
+                            Update : on cache la description // <p> {{ pin.description|u.truncate(15, '...', true) }}</p>
+                            #}
+
+                            <p class="pl-5 pb-3 text-muted" style="padding-left:25px;"><small>Submitted [OWNER]</small></p>
+                        </article>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    {% else %}
+        <p class="h2 mt-5 text-center"> No Pin yet <a href="{{ path('app_pins_create') }}"> Be the First to create a Pin !</a> </p>
+    {% endif %}
 {% endblock %}

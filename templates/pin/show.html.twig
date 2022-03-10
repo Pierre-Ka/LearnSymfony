@@ -3,37 +3,71 @@
 {% block title pin.title %}
 
 {% block body %}
-    <article>
-        <h1> {{ pin.title }}</h1>
-        <p> {{ pin.description }}</p>
-    </article>
-    <a href=" {{ path('app_pins_edit', {id: pin.id}) }}">Edit</a> |
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <article class="pin bg-white rounded shadow" >
+                <div class="mw-100 overflow-hidden">
+                    {# ********** VICH ***************** #}
+                    {#
+                        Ici on va utiliser la fonction d'affichage fourni par vich_uploader : vich_uploader_asset() qui
+                        prend notre objet en paramètre pour afficher l'image. On va faire du ternaire : si on a un nom
+                        d'image alors on afficher l'image sinon on va afficher une image par défault. Quelque soit le
+                        resultat obtenu on y applique le filtre LiipImagine que l'on a défini precedemment
+                    #}
+                    <img src="{{ (pin.imageName ? vich_uploader_asset(pin) : asset('images/placeholder.jpg'))
+                    | imagine_filter( 'mon_filtre_square_miniature_moyenne' )}}"
+                         alt="{{ pin.title }}" class="w-100 rounded">
+                    {# ********** VICH ***************** #}
+                </div>
 
-    {#
-        Mise en place d'un lien Delete sécurisé :
-        On va relier notre lien à un formulaire caché (display:none;).
-        Il va falloir pour cela utiliser un peu de Javascript.
-        Premierement il faut comprendre les alert() :
-        <a href="https://google.com" onclick="alert('cool')">Delete</a>
-        Cela va ouvrir un Pop-Up et si on clic sur OK on est réorienté sur Google
-        L'attribut event.preventDefault(); permet de dire : ce que tu fais par default ne le fait pas. Donc :
-        <a href="https://google.com" onclick="event.preventDefault();  alert('cool')">Delete</a>
-        Pareil mais lorqu'on clic sur OK on est pas redirigé.
-        l'utilisation du && : Soit 1 && 2 . Si 1 est vrai il va faire 2. Si 1 est faux il ne va pas faire 2
-        document.getElementById('truc').submit() signifie qu'il va chercher dans le document ce qui
-        a pour Id 'truc' et il va le soumettre
-    #}
-    <a href="#"
-       onclick="event.preventDefault(); confirm('Are you sure ?') && document.getElementById('js-pin-delete-form').submit() ">
-        Delete</a>
+                <h2 class="h4 pl-5 pt-3" style="padding-left:25px;"> {{ pin.title }} </h2>
+                <p class="pl-5 pb-3 text-muted" style="padding-left:25px;">
+                    <small>
 
-    <form id="js-pin-delete-form" method="post" action="{{ path('app_pins_delete', {id: pin.id}) }}" style="display:none;">
-        <input type="text" name="_method" value="DELETE"/>
-        <input type="hidden" name="csrf_token" value="{{ csrf_token('pin' ~ pin.id) }}"/>
-        {#
-            Comme le formulaire est soumis automatiquement au clic de OK de la Pop-Up "Are you sure?",
-            on a pas besoin de mettre de bouton.
-        #}
-    </form>
+                        {#
+                        Les dates erronés peuvent provenir d'une date.timezone mal configurée dans php.ini.
+                        La manière classique d'afficher la date est d'utiliser le filtre |date :
+                        Ici on souhaite un affichage du style : created 9 minutes ago. On va installer un package externe :
+                        composer require knplabs/knp-time-bundle
+                        #}
+                        <time datetime="{{ pin.createdAt|date('Y-m-d H:i:s') }}">Submitted {{ pin.createdAt|ago }}</time>
+                        by [OWNER FULL NAME]
+                    </small>
+                </p>
+                <p class="pl-3 pb-3" style="padding-left:25px;">
+                    {{ pin.description }}
+                </p>
+                <div class="pl-3 pb-3" style="padding-left:25px;">
+                    <a href=" {{ path('app_pins_edit', {id: pin.id}) }}" class="btn btn-light">Edit</a>
 
+                    {#
+                    Mise en place d'un lien Delete sécurisé :
+                    On va relier notre lien à un formulaire caché (display:none;).
+                    Il va falloir pour cela utiliser un peu de Javascript.
+                    Premierement il faut comprendre les alert() :
+                    <a href="https://google.com" onclick="alert('cool')">Delete</a>
+                    Cela va ouvrir un Pop-Up et si on clic sur OK on est réorienté sur Google
+                    L'attribut event.preventDefault(); permet de dire : ce que tu fais par default ne le fait pas. Donc :
+                    <a href="https://google.com" onclick="event.preventDefault();  alert('cool')">Delete</a>
+                    Pareil mais lorqu'on clic sur OK on est pas redirigé.
+                    l'utilisation du && : Soit 1 && 2 . Si 1 est vrai il va faire 2. Si 1 est faux il ne va pas faire 2
+                    document.getElementById('truc').submit() signifie qu'il va chercher dans le document ce qui
+                    a pour Id 'truc' et il va le soumettre
+                    #}
+                    <a href="#" class="btn btn-light"
+                       onclick="event.preventDefault(); confirm('Are you sure ?') && document.getElementById('js-pin-delete-form').submit() ">
+                        Delete</a>
+
+                    <form id="js-pin-delete-form" method="post" action="{{ path('app_pins_delete', {id: pin.id}) }}" style="display:none;">
+                        <input type="text" name="_method" value="DELETE"/>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token('pin' ~ pin.id) }}"/>
+                        {#
+                        Comme le formulaire est soumis automatiquement au clic de OK de la Pop-Up "Are you sure?",
+                        on a pas besoin de mettre de bouton.
+                        #}
+                    </form>
+                </div>
+            </article>
+        </div>
+    </div>
 {% endblock %}

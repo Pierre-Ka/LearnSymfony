@@ -23,3 +23,15 @@ import './bootstrap';
 
 import $ from 'jquery';
 import 'bootstrap';
+
+/*
+    Ecriture du code d'Honoré avec JQuery ( devenu obsolete lors du passage au theme form Bootstrap 5 )
+    Ce code à pour but de recuperer le nom de m'image chargée et de l'afficher dans le champ de l'image :
+    Sur l'element de classe .custom-file-input j'écoute l'evenement changement (e)
+    Une fois que l'on recupere quelque chose, on sort le nom de l'evenement qui a été selectionnée
+    (inputFile.files[0].name) et on le met dans le contenu de notre label ('.custom-file-label')
+    $('.custom-file-input').on('change', function(e) {
+        var inputFile = e.currentTarget;
+        $(inputFile).parent().find('.custom-file-label').html(inputFile.files[0].name);
+    })
+ */

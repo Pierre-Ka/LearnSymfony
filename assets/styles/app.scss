@@ -57,3 +57,24 @@ html, body {
 }
 
 
+.vich-image .form-check  {
+    margin-top: 20px;
+}
+.vich-image {
+    .form-check {
+        @extend .mt-3;
+    }
+    img {
+        @extend .mb-2;
+        @extend .rounded;
+        @extend .shadow;
+        @extend .img-thumbnail;
+    }
+}
+
+.pin img{
+    transition: transform 0.3s ease-out;
+    &:hover {
+        transform: scale(1.075);
+    }
+}
