@@ -71,6 +71,7 @@ html, body {
         @extend .img-thumbnail;
     }
 }
+/*   ou @extend .mb-2, .rounded, .shadow, .img-thumbnail ;  */
 
 .pin img{
     transition: transform 0.3s ease-out;

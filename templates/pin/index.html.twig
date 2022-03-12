@@ -25,12 +25,12 @@
                 {% for pin in row %}
                     <div class="col-md-4">
                         <article class="pin bg-white rounded shadow" >
-                            <div class="mw-100 overflow-hidden">
+                            <div class="mw-100 rounded-top overflow-hidden">
                                 <a href="{{ path('app_pins_show', {id: pin.id}) }}">
                                     {# ********** VICH ***************** #}
                                     <img src="{{ (pin.imageName ? vich_uploader_asset(pin) : asset('images/placeholder.jpg')) | imagine_filter(
                                         'mon_filtre_square_miniature_moyenne'
-                                    )}}" alt="{{ pin.title }}" class="w-100 rounded">
+                                    )}}" alt="{{ pin.title }}" class="w-100">
                                     {# ********** VICH ***************** #}
                                 </a>
                             </div>
@@ -46,7 +46,8 @@
                             Update : on cache la description // <p> {{ pin.description|u.truncate(15, '...', true) }}</p>
                             #}
 
-                            <p class="pl-5 pb-3 text-muted" style="padding-left:25px;"><small>Submitted [OWNER]</small></p>
+                            <p class="pl-5 pb-3 text-muted" style="padding-left:25px;"><small>Submitted by {{ pin.user.fullName}}
+                                    </small></p>
                         </article>
                     </div>
                 {% endfor %}
