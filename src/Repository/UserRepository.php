@@ -51,6 +51,11 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     /**
      * Used to upgrade (rehash) the user's password automatically over time.
      */
+    /*
+        Cette methode est opportuniste. Lorsque l'utilisateur se connecte, elle recupère le password entré et le rehash
+        en utilisant l'algorithme actuel. Cela permet de changer d'algorithme de manière transparente ( cad sans avoir
+        a réinitialiser tous les mots de passe ).
+     */
     public function upgradePassword(PasswordAuthenticatedUserInterface $user, string $newHashedPassword): void
     {
         if (!$user instanceof User) {

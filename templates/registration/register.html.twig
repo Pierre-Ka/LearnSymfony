@@ -1,0 +1,44 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block title 'Register' %}
+
+{% block body %}
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <h1 class="text-center my-5">Create an Account</h1>
+
+            {{ form_start(registrationForm)  }}
+            {#  {{ form_start(registrationForm {# , {'attr': {'novalidate' : 'novalidate', 'class' : 'cool'}} #}
+            {#
+            form_row() est une fonction twig qui s'occupe de l'ensemble d'un champ : A l'interieur on trouve :
+            https://symfony.com/doc/current/form/form_customization.html
+            form_label() s'occupe du label, form_widget() du champ a proprement dit, form_help() d'un texte d'aide
+            lié à ce champ et form_errors() de l'affichage des erreurs. Ainsi on pourrait juste afficher le widget
+            {{ form_widget(registrationForm.email) }} ou juste le help, ect ...
+            #}
+            <div class="row">
+                <div class="col-md-6">
+                    {{ form_row(registrationForm.firstName) }}
+                </div>
+                <div class="col-md-6">
+                    {{ form_row(registrationForm.lastName) }}
+                </div>
+            </div>
+            {{ form_row(registrationForm.email) }}
+            {{ form_row(registrationForm.plainPassword, {
+                label: 'Password'
+            }) }}
+            {{ form_row(registrationForm.agreeTerms) }}
+
+            <button type="submit" class="btn btn-primary btn-lg w-100" formnovalidate />Register</button>
+            {#
+            Par default tous les champs qui n'ont pas encore été affichés seront afficher ici
+            #}
+            <p class="mt-5 mb-3 text-center text-muted">
+                Already have an Account ? <a href="{{ path('app_login') }}"> Log In</a>
+            </p>
+            {{ form_end(registrationForm) }}
+        </div>
+    </div>
+
+{% endblock %}

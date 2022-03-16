@@ -1,0 +1,26 @@
+Couleur message erreur de bootstrap : Il n'y a pas le Error
+
+Message erreur 404 qui ne s'affiche pas en env=prod
+
+Obliger de faire yarn dev pour prendre en compte les modifs webpacks.
+Alors que dans le tuto, webpack se regenere automatiquement ( les modifications entre fichiers de assets/ et build/ sont automatiques)
+
+phpstorm qui ne veut pas renommer .css en .scss
+
+le remove_on_update de vich_uploader ne fonctionne pas.
+
+comment se connecter bdd par terminal ?
+
+Maximum time 30 times executed. Souvent au niveau de la première connexion.
+
+UpgradePassword implementation.
+
+make:registration-form :  Would you like to include the user id in the verification link to allow anonymous email verification? (yes/no) [no]: (???)
+
+L'envoi de mail ne marche pas.
+Le register connecte directement.
+
+La debug barre ne s'affiche pas.(seulement google)
+ la cli doit etre upgrader.
+
+Le mystere du token.

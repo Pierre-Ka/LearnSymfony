@@ -48,6 +48,24 @@
 
                             <p class="pl-5 pb-3 text-muted" style="padding-left:25px;"><small>Submitted by {{ pin.user.fullName}}
                                     </small></p>
+
+                            {#
+                                Ici on met un lien de suppression du pin (deja explique dans show.html.twig :
+                                On se retrouve avec un problème, lorsqu'on clique dessus le mauvais pin est supprimé !
+                                En effet dans notre Js, on lui demande d'aller chercher le formulaire d'id
+                                'js-pin-delete-form', or tous nos formulaires ont le même id... On va donc créer des
+                                noms unique pour nos id.
+
+                                <a href="#" class="m-3 btn btn-danger"
+                                    onclick="event.preventDefault(); confirm('Are you sure ?')
+                                    && document.getElementById('js-pin-delete-form-{{ pin.id }}').submit()">
+                                    &times; Delete</a>
+                                <form id="js-pin-delete-form-{{ pin.id }}" method="post"
+                                      action="{{ path('app_pins_delete', {id: pin.id}) }}" style="display:none;">
+                                    <input type="text" name="_method" value="DELETE"/>
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token('pin' ~ pin.id) }}"/>
+                                </form>
+                            #}
                         </article>
                     </div>
                 {% endfor %}

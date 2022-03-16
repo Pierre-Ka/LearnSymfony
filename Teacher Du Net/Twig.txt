@@ -1,0 +1,149 @@
+Syntaxe de base : {% pour les block %} {{ pour l'affichage }}
+Dans Twig, {{ dump(pins) }}, dump est egalement disponible.
+Tous les chemins Twig doivent partir de templates/.
+Twig fait commencer ses boucles (for)(endfor) à 1. 
+On peut recuperer le numero de la boucle avec loop.index
+Twig echappe automatiquement le html, le css, le js. Il faut donc préciser le fait que l'on veut qu'il soit interprété en entourant notre contenu de {{ autoescape false }}{{ endautoescape }} ou avec le filtre |raw.
+Les filtres s'utilisent avec |. Le filtre nl2br permet une mise en page avec saut à la ligne entre les paragraphes
+
+ECRITURE DES TABLEAUX DANS TWIG
+Dans Twig les tableaux ne s'écrivent pas ['nom' => 'truc';]
+mais avec {nom : 'truc'} 
+donc avec des accolades et écriture de type 'JSON' à l'interieur 
+
+AFFICHER UNE BOUCLE SEULEMENT SI IL Y A :
+	{% if pins|length > 0 %}
+		{% for pins in pin %}
+		affichage 
+		{% endfor %}
+		{% else %}
+		Rien a afficher
+	{% endif %}
+Equivaut à : 
+	{% for pins in pin %}
+		Affichage
+		{% else %}
+		Rien a afficher
+	{% endfor %}
+
+INSTALLER DES THEMES BOOTSTRAP POUR NOS FORMULAIRE : 
+https://symfony.com/doc/current/form/form_themes.html
+Copier le lien et le placer tel qu'expliqué (config->package->twig.yalm:twig:)
+
+AFFICHAGE DE L'HEURE
+il faut utiliser le filtre |date 
+{{ 'now'|date('h:i A', 'Europe/Paris') }}
+{{ 'now'|date('Y') }}
+
+FILTRE U ET BUNDLE EXTERNE :
+Beaucoup de possibilités ne sont pas inclus dans le package Twig de base dont le filtre u :
+composer require twig/string-extra
+composer require twig/extra-bundle
+Le filtre u (https://twig.symfony.com/doc/2.x/filters/u.html) permet de considerer le caractère à gauche comme un ensemble pour y faire des opérations.
+( ex : |u.truncate(nombre de caractère, fin de chaine, wordcut))
+
+CONCATENATION :
+On concatene en utilisant le tilta : ~ de cette manière : 
+{% block title ' About Us | ' ~ parent() %} ou
+{% block title %} About Us | {{ parent() }} {% endblock %}
+
+LAYOUT GLOBAL ET FONCTION ASSET() :
+Dans le layout global ne pas oublier le viewport. 
+On met notre contenu dans 
+<main role="main"> 
+	{% block body %}{% endblock %} 
+</main>
+On peut rajouter dans la balise html : 
+<html lang="en"> on peut mettre <html lang="{{ app.request.locale}}">
+Il est recommander d'encapsuler le path des image dans une fonction asset() afin de pouvoir faciliter le passage des images dans un cdn : composer require asset 
+<img src="/img/photo.png" => <img src="{{ asset('/img/photo.png') }}""
+
+STRUCTURE TERNAIRE :
+Twig supporte la structure ternaire : 
+{{ name == 'email' ? 'email' : 'text'}} ce qui signifie si name = email affiche email sinon text
+et nous offre même un raccourci
+{{ name == 'email' ?: 'text'}}
+
+FERMER NOTRE CLASSE ROW TOUS LES 4 POSTS ( et la reouvrir )
+<div class="row">
+	{% for post in posts %}
+	<div class="col-4">
+		<div class="card">
+			<img src="path/to/media/IMG{{post.picture}}.jpeg" alt="" class="card-img-top" width="100%" />
+			<div class="card-block">
+				<h4 class="card-title">{{ ' Titre :' ~ post.title}}</h4>
+				<p> {{ loop.index }}
+				<p class="card-text">{{strongFunction(post.content)}}</p>		
+				<a href="#">Voir le tutoriel</a>
+			</div>
+		</div>
+	</div>
+	{% endfor %}
+</div>
+{% if loop.index % 4 == 0 %} 
+	</div><div class="row">
+{% endif %}
+
+APPEL AU CONTENU DU PARENT
+{% extends layout.html.twig %}
+{% block sidebar %}
+	<h1>Ma sidebar vue de l'enfant </h1>
+	<p> Remplace le contenu parent </p>
+	<p> Ici après le contenu enfant on appelle le contenu parent : </p>
+	{{ parent()}} 
+{% endblock sidebar %}
+
+IL EST POSSIBLE DE DEFINIR DES MACRO. exemple :
+fichiermacro.twig : 
+{% macro input(name, label, value = null, options = []) %}
+
+	<div class="form-group {{ options.class }}">
+		<label for="{{name}}"> {{label}} </label>
+		<input type="{{ name == 'email' ? 'email' : 'text'}}" class="form-control" id="{{name}}" name="{{name}}" value="{{value}}">
+	</div>
+{% endmacro %}
+{% macro textarea(name, label, value = null, options = []) %}
+	<div class="form-group {{ options.class }}">
+		<label for="{{name}}"> {{label}} </label>
+		<textarea class="form-control" id="{{name}}" name="{{name}}">{{value}}</textarea>
+	</div>
+{% endmacro %}
+{% macro nouvellemacro() %}
+	<p>....</p>
+{% endmacro %}
+
+example.html.twig
+{% extends 'layout.html.twig' %}
+{% block main %}
+	<h1> Utilisation des macros </h1>
+	{% import 'fichiermacro.twig' as form %}
+	<form action="" method="">
+		<div class="row">
+			{{ form.input('name', 'Votre nom', name,  {class : 'col-xs'}) }}
+			{{ form.input('email', 'Votre email', email,  {class : 'col-xs'}) }}
+		</div>
+		{{ form.textarea('message', 'Votre message') }}
+		<div class="form-group">
+			<button type="submit" class="btn btn-primary">Envoyer</button>
+		</div>
+	</form><br/>
+	<h1> Utilisation des autoespace false pour afficher notre texte en strong </h1><br/>
+	<div class="row">
+		{% for post in posts %}
+			<div class="col-4">
+				<div class="card">
+					<img src="path/to/media/IMG{{post.picture}}.jpeg" alt="" class="card-img-top" width="100%" />
+					<div class="card-block">
+						<h4 class="card-title">{{ ' Titre :' ~ post.title}}</h4>
+						<p> {{ loop.index }}
+						<p class="card-text">
+						{% autoescape false %}
+						{{strongFunction(post.content |raw | u.truncate(30, '...'))}}</p>		
+						{% endautoescape %}
+						<a href="#">Voir le tutoriel</a>
+					</div>
+				</div>
+			</div>
+		{% endfor %}
+	</div>
+{% endblock main %}

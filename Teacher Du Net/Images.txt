@@ -1,0 +1,285 @@
+Les erreurs classiques liés au telechargement d'image proviennent de php.ini :
+8388608 bytes is 8M, the default limit in PHP. Update your post_max_size in php.ini to a larger value. upload_max_filesize sets the max file size that a user can upload while post_max_size sets the maximum amount of data that can be sent via a POST in a form. So you can set upload_max_filesize to 1 meg, which will mean that the biggest single file a user can upload is 1 megabyte, but they could upload 5 of them at once if the post_max_size was set to 5.
+Changes will take effect after a restart of the server.
+
+install imagick with pecl
+https://pecl.php.net/package/imagick
+
+
+
+https://symfony.com/doc/current/controller/upload_file.html
+
+Nous on va utiliser un bundle : vich uploader
+https://github.com/dustin10/VichUploaderBundle/blob/master/docs/installation.md
+composer require vich/uploader-bundle
+Vu qu'il ne s'agit pas d'une recette officielle, on nous demande si on veut l'executer. Puis il nous dis la suite de l'installation : 
+Si on n'utilise pas Flex, installer le bundle (Vich\UploaderBundle\VichUploaderBundle()) dans notre bundle.php
+Puis spécifier à Vich quelle est notre manière de communiquer en base de donnée config -> packages ->vich_uploader.yaml:vich_uploader: db_driver: orm
+On a ensuite : That was it!
+Yeah, the bundle is installed! Move onto the 'usage section' to find out how to configure and set up your first upload. On clic sur 'usage section'
+Ici on a un peu plus de configuration :
+
+Step 1: configure an upload mapping : Each time you need to upload something new to your system, you'll start by configuring where it should be stored (upload_destination), the web path to that directory (uri_prefix) and give the upload mapping a name (product_image in our example). you should always use a namer. Nous on va choisir SmartUniqueNamer. 
+Finalement vich_uploader.yalm : 
+vich_uploader:
+    db_driver: orm
+
+    mappings:
+        pin_image:
+            uri_prefix: /uploads/pins
+            upload_destination: '%kernel.project_dir%/public/uploads/pins'
+            namer: Vich\UploaderBundle\Naming\SmartUniqueNamer
+
+Step 2: link the upload mapping to an entity
+Dans l'entité : Il faut copier les namespace : 
+use Symfony\Component\HttpFoundation\File\File;
+use Vich\UploaderBundle\Mapping\Annotation as Vich;
+Il faut rajouter l'annotation : 
+/**
+ * @ORM\Entity
+ * @Vich\Uploadable
+ */
+ Maintenant il nous demande de rajouter les champs suivant : 
+ Une propriété non mappé nommé imageFile, une propriété mappé nommé imageName ( que l'on a dans le tuto deja crée ), une propriété mappé nommé imageSize ( que l'on ne va pas crée ) et une propriété mappé nommée updatedAt ( que l'on a egalement  deja crée ) et les getters et les setters :
+ https://github.com/dustin10/VichUploaderBundle/blob/master/docs/usage.md =
+	 <?php
+
+	namespace Acme\DemoBundle\Entity;
+
+	use Doctrine\ORM\Mapping as ORM;
+	use Symfony\Component\HttpFoundation\File\File;
+	use Vich\UploaderBundle\Mapping\Annotation as Vich;
+
+	#[ORM\Entity]
+	#[Vich\Uploadable] 
+	class Product
+	{
+	    #[ORM\Id]
+	    #[ORM\Column(type: 'integer')]
+	    #[ORM\GeneratedValue(strategy: 'AUTO')]
+	    private ?int $id = null;
+
+	    // ... other fields
+
+	    /**
+	     * NOTE: This is not a mapped field of entity metadata, just a simple property.
+	     */
+	    #[Vich\UploadableField(mapping: 'product_image', fileNameProperty: 'imageName', size: 'imageSize')]
+	    private ?File $imageFile = null;
+
+	    #[ORM\Column(type: 'string')]
+	    private ?string $imageName = null;
+
+	    #[ORM\Column(type: 'integer')]
+	    private ?int $imageSize = null;
+
+	    #[ORM\Column(type: 'datetime')]
+	    private ?\DateTimeInterface $updatedAt = null;
+
+	    /**
+	     * If manually uploading a file (i.e. not using Symfony Form) ensure an instance
+	     * of 'UploadedFile' is injected into this setter to trigger the update. If this
+	     * bundle's configuration parameter 'inject_on_load' is set to 'true' this setter
+	     * must be able to accept an instance of 'File' as the bundle will inject one here
+	     * during Doctrine hydration.
+	     *
+	     * @param File|\Symfony\Component\HttpFoundation\File\UploadedFile|null $imageFile
+	     */
+	    public function setImageFile(?File $imageFile = null): void
+	    {
+	        $this->imageFile = $imageFile;
+
+	        if (null !== $imageFile) {
+	            // It is required that at least one field changes if you are using doctrine
+	            // otherwise the event listeners won't be called and the file is lost
+	            $this->updatedAt = new \DateTimeImmutable();
+	        }
+	    }
+
+	    public function getImageFile(): ?File
+	    {
+	        return $this->imageFile;
+	    }
+
+	    public function setImageName(?string $imageName): void
+	    {
+	        $this->imageName = $imageName;
+	    }
+
+	    public function getImageName(): ?string
+	    {
+	        return $this->imageName;
+	    }
+	    
+	    public function setImageSize(?int $imageSize): void
+	    {
+	        $this->imageSize = $imageSize;
+	    }
+
+	    public function getImageSize(): ?int
+	    {
+	        return $this->imageSize;
+	    }
+	}
+
+Dans notre projet on a deja imageName et updatedAt et on ne souhaite pas rajouter imageSize donc on se retrouve avec :
+	<?php
+
+	namespace Acme\DemoBundle\Entity;
+
+	use Doctrine\ORM\Mapping as ORM;
+	use Symfony\Component\HttpFoundation\File\File;
+	use Vich\UploaderBundle\Mapping\Annotation as Vich;
+
+	#[ORM\Entity]
+	#[Vich\Uploadable] 
+	class Product
+	{
+	    #[ORM\Id]
+	    #[ORM\Column(type: 'integer')]
+	    #[ORM\GeneratedValue(strategy: 'AUTO')]
+	    private ?int $id = null;
+
+	    // ... other fields
+	    #[Vich\UploadableField(mapping: 'product_image', fileNameProperty: 'imageName', size: 'imageSize')]
+	    private ?File $imageFile = null;
+	 	/**
+	     * @param File|\Symfony\Component\HttpFoundation\File\UploadedFile|null $imageFile
+	     */
+	    public function setImageFile(?File $imageFile = null): void
+	    {
+	        $this->imageFile = $imageFile;
+
+	        if (null !== $imageFile) {
+	            /* It is required that at least one field changes if you are using doctrine, otherwise the event listeners won't be called and the file is lost */
+	            $this->setUpdatedAt(new \DateTimeImmutable);
+	        }
+	    }
+
+	    public function getImageFile(): ?File
+	    {
+	        return $this->imageFile;
+	    }
+	}
+
+Il faut finir l'installation par un s cache:clear et
+s cache:warmup
+
+Step 3: configure the lifecycle events (optional step)
+On a une etape optionnelle : dans vich_uploader.yalm
+delete_on_remove: default true, should the file be deleted when the entity is removed ;
+delete_on_update: default true, should the file be deleted when a new file is uploaded ;
+inject_on_load: default false, should the file be injected into the uploadable entity when it is loaded from the data store. The object will be an instance of Symfony\Component\HttpFoundation\File\File.
+Les options par default nous conviennent.
+
+
+
+GERER LE CODE : 
+Comment ajouter un fichier générique ( pdf, text ...) : 
+https://github.com/dustin10/VichUploaderBundle/blob/master/docs/form/vich_file_type.md
+Comment ajouter un fichier de type image : 
+https://github.com/dustin10/VichUploaderBundle/blob/master/docs/form/vich_image_type.md
+Il nous dit dans notre class Form, dans notre builder, il faut ajouter :
+        $builder->add('imageFile', VichImageType::class, [
+            'required' => false,
+            'allow_delete' => true,
+            'delete_label' => '...',
+            'download_label' => '...',
+            'download_uri' => true,
+            'image_uri' => true,
+            'imagine_pattern' => '...',
+            'asset_helper' => true,
+        ]);
+
+Il faut installer le bundle LiipImagineBundle pour avoir accès à l'option 'imagine_pattern' => '...',
+
+
+Il y a un bug sur le delete_upload
+
+
+
+
+
+BUNDLE LiipImagineBundle 
+https://github.com/liip/LiipImagineBundle
+https://symfony.com/bundles/LiipImagineBundle/current/installation.html#step-1-download-the-bundle
+composer require liip/imagine-bundle
+A la fin on a :
+ liip/imagine-bundle  instructions:
+
+  Configure your transformations:
+    1. You MUST verify and uncomment the configuration in config/packages/liip_imagine.yaml.
+    2. You MAY configure your image transformation library (gmagick, imagick, or gd [default]).
+    3. You MAY define custom transformation definitions under the filter_sets option.
+Si on va dans bundle.php, on voit qu'il a été enregistré.
+config -> package -> liip_imagine.yalm
+
+/******* n'est pas fait dans le tuto ************/
+Finally, register this bundle's routes by add the following to your project's routing file:
+# app/config/routing.yml
+_liip_imagine:
+    resource: "@LiipImagineBundle/Resources/config/routing.yaml"
+/*******************************************************
+
+Ensuite on met en place nos filtres : 
+https://symfony.com/bundles/LiipImagineBundle/current/filters/sizing.html#up-scale
+On a pas mal de filtre :
+Thumbnails
+Thumbnail Options
+Fixed size
+Fixed Options
+Cropping Images
+Crop Options
+Relative Resize
+Relative Resize Options
+Scale
+Scale Options
+Down Scale
+Down Scale Options
+Up Scale
+Up Scale Options
+
+Voyons le filtre miniature :
+https://symfony.com/bundles/LiipImagineBundle/current/filters/sizing.html#thumbnails.
+On peut le créer comme cela dans liip_imagine.yalm : 
+
+# Documentation on how to configure the bundle can be found at: https://symfony.com/doc/current/bundles/LiipImagineBundle/basic-usage.html
+liip_imagine:
+    # valid drivers options include "gd" or "gmagick" or "imagick"
+    driver: "gd"
+
+
+    filter_sets:
+        mon_filtre_square_miniature_moyenne:
+            filters:
+                thumbnails:
+                    size: [300, 300]
+                    mode: outbound
+                    allow-upscale: true
+
+        mon_filtre_square_miniature_petite:
+          filters:
+            thumbnails:
+              size: [ 200, 200 ]
+              mode: outbound
+              allow-upscale: true
+
+Le mode outbound va croper l'image pour avoir ce que l'on veut. 
+allow-upscale permet d'aggrandir l'image si elle trop petite jusqu'à avoir les dimensions souhaitées.
+
+Lorsqu'on veut afficher l'image ça ne marche pas.
+On change "gd" pour "imagick"
+
+
+
+AFFICHAGE DE VICH : 
+https://github.com/dustin10/VichUploaderBundle/blob/master/docs/generating_urls.md
+On nous montre comment l'afficher : Generating a URL in a Controller,
+Generating a URL in a Twig Template
+On prend nous le cas le plus simple : 
+<img src="{{ vich_uploader_asset(product) }}" alt="{{ product.name }}">
+Les images sorties sont très très grande
+AFFICHAGE DE LIIPIMAGINE :
+https://github.com/liip/LiipImagineBundle
+Dans Overview on a cet exemple : 
+<img src="{{ asset('/relative/path/to/image.jpg') | imagine_filter('my_thumb') }}" /> Donc on pourra l'utiliser comme un filtre sur VichImages

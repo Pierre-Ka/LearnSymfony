@@ -6,12 +6,26 @@ use App\Repository\UserRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use App\Entity\Traits\Timestampable;
+use Symfony\Component\Validator\Constraints as Assert;
 
+/* On importe la Constraint et on définit une validitation pour firstName, lastName et Email */
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\HasLifecycleCallbacks]
+/*
+    La contrainte d'unicité a été rajouté lors de make:registration-form
+    Elle se rajoute obligatoirement au niveau de la classe et jamais au niveau de la propriété.
+    On pourrait créer une contrainte d'unicité sur 2 champs ( combinaison de 2 champs) . Ex :
+    #[UniqueEntity(fields: ['firstName', 'lastName'])]. La contrainte d'unicité s'applique en bdd et permet d'eviter
+    une race condition ( lorsque 2 utilisateurs entre la même adresse email au même moment : cela marchera et
+    provoquera un bug.
+*/
+#[UniqueEntity(fields: ['email'], message: 'There is already an account with this email')]
+#[UniqueEntity(fields: ['email'], message: 'There is already an account with this email')]
+
 
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
@@ -22,13 +36,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'integer')]
     private $id;
 
+
     #[ORM\Column(type: 'string', length: 255)]
+    #[Assert\NotBlank(message: 'Please enter your first name')]
     private $firstName;
 
     #[ORM\Column(type: 'string', length: 255)]
+    #[Assert\NotBlank(message: 'Please enter your last name')]
     private $lastName;
 
     #[ORM\Column(type: 'string', length: 180, unique: true)]
+    #[Assert\NotBlank(message: 'Please enter your email')]
+    #[Assert\Email(message: 'Please enter a valid email adress')]
     private $email;
 
     #[ORM\Column(type: 'json')]
@@ -50,6 +69,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     #[ORM\OneToMany(mappedBy: 'user', targetEntity: Pin::class, orphanRemoval: true)]
     private $pins;
+
+    /*
+        La propriété isVerified a été rajouté lors de make:registration-form ainsi  que les setters
+        et getters correspondants.
+    */
+    #[ORM\Column(type: 'boolean')]
+    private $isVerified = false;
 
     public function __construct()
     {
@@ -207,5 +233,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getFullName() : string
     {
         return $this->getFirstName(). ' ' .$this->getLastName();
+    }
+
+    public function isVerified(): bool
+    {
+        return $this->isVerified;
+    }
+
+    public function setIsVerified(bool $isVerified): self
+    {
+        $this->isVerified = $isVerified;
+
+        return $this;
     }
 }

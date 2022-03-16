@@ -9,6 +9,12 @@ use Twig\TwigFunction;
     Le but est ici de créer une fonction Twig
     Porter votre attention sur les raccourcis d'écriture aborder en bas
  */
+/*
+    Il existe un composant String que l'on utilisera pas ici , intégré par défault qui permet
+    de faire des opérations sur des strings. On pourrait l'utiliser comme cela :
+    $inflector = new EnglishInflector(); ( importer la classe )
+    $inflector->singularize('tooth');
+ */
 
 class AppExtension extends AbstractExtension
 {

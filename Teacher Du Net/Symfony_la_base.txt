@@ -1,0 +1,386 @@
+Tutoriel - Symfony - LES TEACHERS DU NET
+
+1 - Router
+2 - Bdd avec Sqlite
+3 - Paramètres du container
+4 - Variables d'environnement
+5 - Nom de l'entité different du nom de la table
+6 - .env.local
+7 - Var_dump & Debug
+8 - Injection de Dependance
+9 - Delete and Truncate
+10 - Traitement de la methode de la route
+11 - Objet Request
+12 - Retourner du JSON
+13 - Faille CRSF et Token
+14 - Exemple de fonction controller classique
+15 - Fonction redirect()
+**************** Special Formulaire ****************************** p 210
+16 - Creation du formulaire
+17 - Traitement du formulaire
+18 - Les attributs du formulaire
+19 - Passer des données à FormBuilder
+20 - Bouton Submit
+****************** Fin Special Formulaire ************************
+21 - Systeme de routage et priorité
+22 - Generer des pages 404
+23 - ParamConverter
+24 - Passer des paramètres à l'appel de la route
+25 - php.ini
+26 - Heroku
+27 - Changer de methodes : Put, Delete, ect...
+
+1 - ROUTER : 
+	Au niveau des annotations il faut utiliser les " et non les ' sinon erreurs.
+	Au lieu d'utiliser les annotations ( class Route ) on peut renseigner les routes une par une en utilisant config -> routes.yalm:home :
+	home : 
+		path : /
+		controller : App\Controller\HomeController::index
+	Il est possible d'appeler qu'un controlleur ( sans methode ) si la methode __invoke a été configurée.
+	Le controller attend un objet Response en retour.
+	Controller->new Response('Salut'); est correct
+
+2 - BDD AVEC SQLITE :  ( utiliser pour les petits projects )
+	SQLite est un fichier qui représente une base de donnée. Ce fichier se trouve directement dans notre projet. On doit écrire dans notre .env : 
+	DATABASE_URL=sqlite:///%kernel.project_dir%/var/data/nom_de_ma_bdd.db
+	On doit creer un dossier data/ dans var et l'ajouter à .gitignore
+	tree -L 2 var : montre l'organisation fichier sous forme d'arbre
+
+3 - PARAMETRES DU CONTAINER :
+	Les paramètres du container sont différents des variables d'environnement. Un paramètre du container se trouve entre %% : ex : %kernel_project_dir%.
+	Dans config, on trouve tous les paramètres du container. 
+	symfony console debug:container --parameters : Liste les parametres du container
+	config -> package -> twig.yalm : // C'est le chemin de twig ( parametre twig)
+	twig: default_path: '%kernel.project_dir%/templates'
+	On peut egalement ajouter notre fuseau horaire ici : en dessous default_path écrire :
+	date : timezone : America/Montreal ( ou Europe/Paris)
+	A quoi sert un paramètre ? Au lieu d'utiliser une variable à plusieurs endroits ( ex : x1=toto, x2=toto ), on va définir notre paramètre dans config->services.yalm:parameters 
+	Ex : parameters: app.cool : 'toto' puis dans notre code x1=%app.cool%, x2=%app.cool%, ect ... Par convention on écrit tout dans parameters dans services.yalm et tout les paramètres que l'on créent commencent par app.quelquechose ( pour les distinguer )
+	Globalement on accede à un parametre du container avec %nom_du_parametre%
+
+4 - VARIABLES D'ENVIRONNEMENT : 
+	Terminal : set MA_VARIABLE = "value_variabl" puis
+	Terminal : echo %MA_VARIABLE%
+	Recuperation dans le code : echo getenv('MA_VARIABLE');
+	Dans config -> package -> doctrine.yaml -> : 
+	doctrine:	dbal:	url: '%env(resolve:DATABASE_URL)%'
+	C'est ici que l'on recupere la valeur de la variable d'environnement DATABASE_URL
+	Si on souhaite dans notre code accéder à cette variable ; il faudra marquer : 
+	%env(DATABASE_URL)%
+	Globalement on accede à une variable d'env avec %env(NOM_VARIABLE)%
+	Pourquoi alors dans doctrine il y a-t-il marquer : %env(resolve:DATABASE_URL)% ? resolve: signifie qu'il va falloir resoudre le paramètre du container contenu dans la variable : si il n'y avait pas de resolve le resultat serait : DATABASE_URL="sqlite:///%kernel.project_dir%/var/data.db
+	Avec resolve : DATABASE_URL="sqlite:///C:/Users/Truc/Project/var/data.db
+
+5 - NOM DE L'ENTITE DIFFERENT DU NOM DE LA TABLE :
+	Si une entité n'a pas le même nom que la table alors précisé ce nom dans l'entité
+	/**
+	 *	@ORM\Table(name="new_name")
+	 */
+
+6 - .ENV.LOCAL
+	On met les valeurs "sensibles" dans .env.local puis on ne le commit pas.
+
+7 - VAR_DUMP & DEBUG :
+	Au lieu d'utiliser var_dump($truc);  On peut utiliser dump($truc); 
+	Au lieu d'utiliser var_dump($truc); die();. On utiliser dd($truc); 
+	A l'interieur on peut même faire une recherche ( ctr h ). Si il y a une erreur : unable to fetch the responde alors redemarrer le serveur
+	Dans Twig, {{ dump(pins) }}, dump est egalement disponible.
+	composer require profiler --dev. Cela installe la barre footer lors des erreurs qui donne des informations complementaires.
+	composer require debug --dev. Installe le profiler + debug. A partir de là les dump() seront afficher dans le profiler ( barre footer).
+	Si il y a une erreur d'affichage du profiler : vider le cache : 
+	symfony console cache:clear
+
+8 - INJECTION DE DEPENDANCE : 
+	symfony injecte automatiquement les dependances.
+	Qu'est ce que ça veut dire ? Cela veut dire que lorsqu'on crée une function (XManager $manager ), on a pas besoin de créer $manager = new XManager. l'objet sera créer automatiquement : on appelle cela l'autowiring. ( config -> services.yalm -> services : _defaults : autowire : true ).Une liste des dependances créent automatiquement lors de l'injection est disponible à :
+	symfony console debug:autowiring
+	Si vous êtes dans un controlleur ( et cela ne marche que pour le controlleur ), il est possible d'injecter les dependances directement dans les methodes de celui-ci. Dans tous les autres cas il faudra passer par le __construct.
+	Exemple d'injection de dependance : 
+	public function(EntityManagerInterface $manager) : Response
+	{
+		$repo = $manager->getRepository(App:pin);
+		$pins = $repo->findAll();
+		$toto = $repo->findByToto();
+		return $this->render('path/index.html.twig', ['pins' => $pins, 'toto' => 'toto']);
+		/*	 On peut egalement utiliser la fonction compact() :
+			  return $this->render('path/index.html.twig', compact('pins', 'toto')); 	*/
+	}
+	Encore plus rapide : Injection du repository dans le controller :
+	public function(PinRepository $repo) : Response
+	{
+		return $this->render('index.html.twig', ['pins' => $repo->findAll()]);
+	}
+	RAPPEL : l'injection est possible car on est dans un controlleur. Sinon injection = constructeur
+
+9 - DELETE ET TRUNCATE :
+	En base de donnée, le delete supprime tout ce que l'on a. Le truncate supprime tout et en plus remet l'autoincrementation à 0.
+
+
+10 - TRAITEMENT DE LA METHODE DE LA ROUTE :
+	Lorsque la route ne comporte qu'une seule methode, le traitement est relativement simple. Mais il arrive souvent qu'une route traite différente methodes. Par exemple, pins/create en GET pourrait afficher notre formulaire et pins/create en POST pourrait le traiter. On peut voir la methode de la requete dans le navigateur : Inspecter -> Network -> Headers : Request Method
+	symfony console debug:router == ensemble des routes disponibles
+	/**
+	 * @Router("pins/create" methods=("GET", "POST", ect..)) // ou methods="GET|POST|PATCH"
+	 */
+	 Il faut alors recuperer la methode pour pouvoir afficher la bonne fonction du controlleur. On manipule alors l'objet Request
+
+11 - OBJET REQUEST
+	On recupère nos $_GET et $_POST de cette façon : 
+	$_POST === $request->request ; $_GET === $request->query
+	Il y a cependant une différence fondamentale. Là où $_POST et $_GET sont des variables superglobales, $request->request et $request->query renvoient des objets de type ParameterBag (Symfony\Component\HttpFondation\ParameterBag) cad il est donc possible d'utiliser les methodes ParameterBag dessus : all (recupere tout), keys ( recupere les clés), get (recupere un seul parametre), has (verifie qu'un element est présent ), getInt (recupere la valeur en un entier), getBoolean, filter, ect..
+	public function create(Request $request, EntityManager $manager)
+	{
+	 	if ($request->isMethod('GET'))
+		{
+			dd($request->query->keys());
+		 	dd($request->query->getInt('page'));
+		}
+		if ($request->isMethod('POST'))
+			{
+			 	$data = $request->request->all(); 
+			 	// Recupere l'ensemble des données sous forme de tableau
+			 	$request->request->has('title'); // Retourne un boolean
+			 	$data['title']
+			 	$data['description']
+				// Par exemple on crée un Pin : 
+				$pin = new Pin ;
+				$pin->setTitle($data['title']); ==== equivaut à ==
+				$pin->setTitle($request->request->get('title'));  
+			 } 
+			 // Puis $manager->persist($pin); puis $manager->flush();
+			 return = $this->redirect('/'); // On redirige ensuite
+		} }
+
+12 - RETOURNER DU JSON
+	Si on devait retourner du json ( ex : construction d'une API) alors on n'utilise ni Twig ni l'objet Response mais : 
+	public function home() { return $this->json([
+						'status' => true,
+						'Message' => 'mon message', ]);}
+
+13 - FAILLE CSRF ET TOKEN
+	L'attribut required coté client n'est pas suffisent. En effet n'importe qui peut interargir avec le code html et supprimer le required. Dans ce cas là, la personne pourra valider le formulaire sans remplir tous les champs : dans tous les cas il faut rajouter un validation coté serveur. Concretement en dev on rajoute l'attribut formnovalidate à notre form ce qui va permettre de simuler cette situation ( un formulaire peut être soumis blanc malgré la présence de required ).
+
+	<form method="post" action="to/path" target="_blank">
+	Par défault target="_self", "_blank" permet d'ouvrir un nouvel onglet.
+	Si je met target="new-iframe" puis en dessous dans le code
+	<iframe name="new-iframe"></iframe> ce qui va se passer c'est que _self va s'afficher dans le iframe. Alors pour ne pas l'afficher il me suffit de faire 
+	<iframe name="new-iframe" style="display: none;"></iframe>
+	La faille CSRF permet à un site pirate de détourner un formulaire ( par exemple un formulaire de transfere d'argent de la banque ) si la session est active. Pas besoin de cliquer sur le bouton, le lien du site malicieux est suffisant pour soumettre les données piratées. On utilise maintenant des tokens pour sécuriser les formulaires. On peut ajouter un token manuellement avec : 
+	<form method="post">
+		<input type="hidden" name="_token" value="{{ csrf_token('pins_create') }}"
+	Si la fonction est inconnue entrer alors :
+	composer require security-csrf
+	On recupère ensuite notre token : data['_token'] puis verification : 
+	if ( isCsrfTokenValid('pins_create', data['_token'])) { // On crée notre pin ect..}
+
+14 - EXEMPLE DE FONCTION CONTROLLER CLASSIQUE : 
+	/**
+	 * @Route("/pins/create", methods={"GET", "POST"})
+	 */
+	 public function create(Request $request, EntityManagerInterface $em)
+	 {
+	 	if($request->isMethod('POST'))
+	 	{
+	 		$data = $request->request->all();
+	 		if ($this->isCsrfTokenValid('pins_create', $data['_token']))
+	 		{
+	 			$pin = new Pin;
+	 			$pin->setTitle($data['title']);
+	 			$pin->setDescription($data['description']);
+	 			$em->persist($pin);
+	 			$em->flush();
+	 		}
+	 		return $this->redirect('/');
+	 	}
+	 	return $this->render('pins/create.html.twig');
+	 }
+
+15 - FONCTION REDIRECT() :
+	Si on fait symfony console debug:router, on voit que symfony à donner un nom de route à nos url/path ( app_pin_create, app_pin_index , ect... ). On definit nos noms de route directement dans les annotations du controller : * @Route("/", name="app_home", methods(blabla)). Lors de l'appel, on ne va pas utiliser le path 'en dur' <a href="/pins/create"> mais le nom de route <a href="{{ path('app_home') }}"> . 
+	La fonction generateUrl() va générer l'url attacher à notre nom de route : 
+	Autrement dit :
+	return $this->redirect('/'); ===
+	return $this->redirect($this->generateUrl('app_home')); ===
+	return $this->redirectToRoute('app_home'));
+	return redirect('https://google.com') // On pourrait rediriger n'importe ou
+
+*************************** SPECIAL //////////////////////////////////////
+//////////////////////////////////// FORMULAIRE *************************
+
+16 - CREATION DE FORMULAIRE : 
+	composer require form 
+	Pour construire un formulaire il faut utiliser un FormBuilder. Le formulaire devient alors un objet complexe qui comprend une partie view, une partie logique, une partie verification...
+
+	public function create(Request $request, EntityManagerInterface $em) : Response
+	{
+		$form = $this->createFormBuilder()
+			->add('title', TextType::class)	// Objet FormBuilder
+			->add('description', TextareaType::class)	// Objet FormBuilder
+			->add('submit', SubmitType::class, ['label' => 'Create Pin'])
+				// On peut rajouter des attributs dans un tableau à la suite
+			->getForm()	// Objet Formulaire
+	}
+	La methode add() prend 3 arguments : le nom (attribut name=""), la classe du type de champ (attributs type="" mais egalemment <textarea>, ect ... ), un tableau d'options. Pensez à déclarer le namespace de la classeType :
+	use Symfony\Component\Form\Extension\Core\Type\TextType;
+
+	Si on essaye d'afficher $form on ne pourra pas, il faut appeler sa view via la methode createView() : 'formulaire' => $form->createView()
+	Dans Twig => {{ formulaire }} = Erreur, il existe au niveau de Twig une fonction form() destiné à afficher les formulaires. Donc finalement :
+
+	Controller : return $this->render('path' ['formulaire' => $form->createView()])
+	Twig : {{ form(formulaire) }}
+
+	En regardant le code source (Ctr+U), on s'aperçoit que Symfony a généré automatiquement un token csrf et fait automatiquement la verification !
+
+17 - TRAITEMENT DU FORMULAIRE :
+	public function create(Request $request, EntityManagerInterface $em) : Response	{
+		$form = $this->createFormBuilder() ->add('title') ->add('description') ->add('submit') ->getForm() ;
+		$form->handleRequest($request); 
+		if($form->isSubmitted() && $form->isValid())
+		{
+			$data = $form->getData();
+			$pin = new Pin;
+			$pin -> setTitle($data['title']);
+			$pin -> setDescription($data['description']);
+			$em->persist($pin);
+			$em->flush();
+		} }
+	A SAVOIR : lorsqu'on soumet un formulaire construit avec FormBuilder, Symfony ne va pas renvoyer de $_POST 'name', 'description', 'password', ect ... mais 'form[name]', 'form[description]', 'form[password]', ect ... 
+	CONSEQUENCE : si on fait $request->request->all(), on se retrouve avec un tableau ['form' => [nos données]]. En fait pour recuperer nos données on pourrait faire $request->request->get('form'). Dans ce cas là on recupere toutes nos données sous forme d'un tableau [nos données] : title, description mais egalement le submit et le token. 
+	Avec $form->getData(), nos données sont nettoyés et on ne recupere que title et description
+	Pour recuperer seulement un champ on peut utiliser : $form->get('description')->getData(); ( == $form['description']->getData(); Cela est possible car cela implement l'interface ArrayAccess qui permet d'acceder à notre formulaire comme si on avait un tableau !
+
+18 - LES ATTRIBUTS DES FORMULAIRE
+	Au niveau des formulaire HTML5, les attributs booleen : required="required" et autofocus="autofocus" peuvent s'écrire juste required ou autofocus. Dans notre formulaire on peut spécifier ces attributs : 
+	$form = $this->createFormBuilder()
+		->add('title', TextType::class, [
+			'required' => false,
+			'attr' => ['autofocus' => true]
+			])
+		->add('description', TextareaType::class, [
+			'attr' => ['rows'=>10, 
+					   'cols'=>10]
+			])
+
+19 - PASSER DES DONNEES A FORMBUILDER
+	On crée un tableau et on le passe à notre formulaire :
+	$data = ['title' => 'cool'];
+	$form = $this->createFormBuilder($data);
+	Dans ce cas il va préremplir notre formulaire avec les données passées. 
+	De meme si on passe un objet : 
+	$pin = new Pin ;
+	$pin->setTitle('cool')->setDescription('za');
+	$form = $this->createFormBuilder($pin);
+
+	Ainsi on peut sortir un objet et Symfony affichera son contenu dans les champs correspondants : Attention ! Si il y a un champ qui ne correspond pas (ex : ->add('toto')) => Erreur ! Il faut que les champs represente les attributs. FormBuilder est plus strict avec les objets que avec les tableaux.
+	Si on passe un objet vide : $form = $this->createFormBuilder(new Pin); 
+	Lorsqu'on recupere nos données ( $data = $form->getData(); ), Symfony nous retourne notre objet completé ! On a donc pas besoin de setter notre objet ( $pin->setTitle($data['title']) cela a déjà été fait. On l'enregistre :
+		$form->handleRequest($request);
+		if ($form->isSubmitted() && $form->isValid())
+		{	
+			$em->persist($form->getData());	// ou $em->persist($pin);
+			$em->flush(); 
+		}
+	A noter qu'un pourrait spécifier null au lieu du type ( ->add('title', TextType::class, ['required' => false] devient ->add('title', null, ['required' => false] ). Dans ce cas là , Symfony va regarder dans l'entity quoi afficher. Dans la barre profiler du debug on peut cliquer sur l'icone Form pour avoir toutes les informations relatives à notre formulaire.
+
+20 - BOUTON SUBMIT
+	Il est recommander de créer notre bouton de soumission dans notre vue, pour cela on l'integre dans notre form grâce à formstart et formend : 
+	{{ form_start(form) }}
+		{{ form_widget(form) }}
+		<input type="submit" value="Create Pin">
+	{{ form_end(form) }}
+
+*************************** FIN DU SPECIAL ////////////////////////////////////
+//////////////////////////////////// FORMULAIRE *************************
+
+
+21 - SYSTEME DE ROUTAGE ET PRIORITE
+	Si on a : 
+	/** *@Route("pins/{id}") */
+	public function show (PinRepository $repo, int $id) : Response
+	{ blablabla }
+	/** *@Route("pins/create") */
+	public function create (blabla) 
+	{ blablabla }
+	On arrivera pas à se rendre sur pins/create car symfony regarde les routes dans l'ordre d'arrivée : il passera create à {id} et ça ça ne marche pas ! Il faut donc passer la route create en premier.
+	Une autre solution consiste à dire à Symfony que {id} doit être un nombre dans ce cas il ne passera pas de string à {id} pour cela une utilise une expression regulière : 
+	/** *@Route("pins/{id<[0-9]+>}") === *@Route("pins/{id<\d+>}") */
+	On vient d'ajouter des requirements. Les requirements sont indiqués entre les symboles <>. On peut egalement les spécifier à part (, requirement="").
+
+	Depuis symfony 5.1 on peut ajouter des priorités : 
+	/** *@Route("pins/create", priority=10) */ = Passera en priorité ( default=0)
+
+	symfony console router:match /pins/create // La commande va nous retourner le nom du path
+
+22 - GENERER DES PAGES 404
+	Premierement on doit gerer le cas ou on cherche un pin qui n'existe pas : /pins/224
+	Dans ce cas la on voit une erreur serveur. Il faut donc integrer ce cas-là : dans le controlleur on rajoute :
+	if ($pin === null) // ou if(null === $pin) // ou if(is_null($pin)) // ou if (!$pin)
+	{ throw $this->createNotFoundException(' Pin '.$id.' not found'); }
+
+23 - PARAMCONVERTER
+	composer require sensio/framework-extra-bundle ( ou composer req annotation).
+	Le ParamConverter permet de passer notre objet directement en injection de dependance ! En fait il suppose que le paramètre passé dans le GET {id} est l'id de notre objet recherché ( id de pin, id de post, ect...). Si l'id n'est pas trouvé il renvoie la page 404 automatiquement. 
+	Donc au lieu de :
+	public function show(PinRepository $repo, int $id) : Response
+	{
+		$pin = $repo->find($id);
+		return $this->render('pins/show.html.twig', compact('pin'));
+	}
+	On peut faire : 
+	public function show(Pin $pin) : Response
+	{
+		return $this->render('pins/show.html.twig', compact('pin'));	
+	}
+
+24 - PASSER DES PARAMETRES A L'APPEL DE LA ROUTE
+	Lorsqu'on appelle un nom de route dans Twig on utilise <a href=" {{ path('app_home') }} ">
+	Simplement lorsqu'on doit fournir un parametre supplémentaire on va faire : 
+	<a href=" {{ path('app_show'), {'id : pin.id'}  }} ">. Supposons que l'on souhaite redirigé lors de la soumission lors la création du pin vers la page montrant ce pin. On se positionne après le flush() puis : 
+	return $this->redirectToRoute('app_pin_show', ['id' => $pin->getId()]);
+	Lorsqu'on a path et qu'on a des paramètres de route dans nos twig, on utilise des accolades, pas de crochets.
+	Au niveau du code PHP, dans nos controlleurs on passe un tableau, donc des crochets avec les parametres. Car c'est comme cela que fonctionne la methode generateUrl()
+
+	Dans Twig path() nous genère un chemin relatif ('/', '/pins/create', ect...). On a egalement la methode url() qui elle retourne un chemin absolu ('http://monsite.com/pins/create', ect...)
+
+25 - PHP.INI
+	Si on utilise Symfony, à la racine du projet on peut créer notre propre fichier php.ini et mettre notre configuration ini. (ex : date.timezone = Europe/Paris ). Ne pas oublier de redemarrer le serveur.
+
+26 - HEROKU 
+	Creer un compte sur Heroku. Confirmer mail. Telecharger le client Heroku CLI ( pour Windows) ( recherche google Heroku CLI ). Demarrer le terminal. La commande Heroku doit fonctionner. Puis heroku login -i. Entrer mail et password. Se rendre à la racine du projet et taper : heroku create nom-de-application ( si heroku create alors creation d'un nom aléatoire)
+	heroku open ( ouvre notre application ( vide pour l'instant)) puis
+	git push heroku main ( via le remote heroku qui a été rajouté via heroku create )
+	Et Boum il y a des erreurs ! Il souhaite installer nos package de dev egalement : il faut lui dire que l'on est en prod pour cela : .env  changer APP_ENV=dev dans Heroku cad : 
+	Je me connecte dashboard.heroku.com -> Nom_de_mon_application -> Settings -> Reveal Config Vars -> mettre APP_ENV à Keys et prod à Value puis Add
+	Ou dans le terminal :
+	heroku config:set APP_ENV=prod
+	On peut generer une string aléatoire de 32 caractère avec : 
+	php -r 'echo bin2hex(random_bytes(16));'
+	On copie la clé et on va colle :
+	heroku config:set APP_SECRET={ici}
+	Puis on refait : git push heroku main // Deploiement reussi
+	Si on se rend sur le site on a acces forbidden. Il faut aller à la racine et créer un fichier Procfile sans rien. Puis on écrit : 
+	web : heroku-php-apache2 public /
+	Puis git add commit push heroku main ...ect..
+	Si erreur : 
+	heroku run php bin/console cache:clear
+	heroku run php bin/console cache:warmup
+	La page d'accueil marche mais pas les liens ! Il faut installer 
+	composer req apache-pack // Cela va installer un .htaccess puis git add commit push....
+	En + : dans notre Procfile on pourrait mettre des actions à effectuer à chaque push comme cela : 
+	release : php bin/console cache:clear && php bin/console cache:warmup ( voir php bin/console doctrine:migration:migrate, ect...)
+	Au niveau de Heroku ( dans public ) on peut creer un .user.ini et copier le contenu de php.ini dedans ( afin que la config soit charger )
+
+
+27 - CHANGER DE METHODE : PUT, DELETE, ECT....
+	Premierement on le spécifie dans la route : 
+	#[Route('/pins/{id<\d+>}/edit', name: 'app_pins_edit', methods: "GET|PUT")]
+	Puis on le spécifie dans le formulaire : 
+	    $form = $this->createForm(PinType::class, $pin, [
+	            'method' => 'PUT' 
+	    ]);
+	Le formulaire s'envoie avec la methode post ( inchangeable en symfony ) mais on crée comme cela 
+	un champ caché : name="_method" value="PUT". 
+	Si on a une erreur : 
+	No route found for "POST https://localhost:8000/pins/11/edit": 
+	Method Not Allowed (Allow: GET, PUT). 
+	Alors on doit aller dans : config -> package -> framework.yalm -> framework : http_method_override: true 

@@ -1,0 +1,406 @@
+********************************************************************************************************************* Tutoriel Securité Symfony *************
+
+0 - Afficher un utilisateur connecté
+1 - Introduction à la sécurité
+2 - Créer une classe sécurisé avec make:user
+3 - Créer l'authentification avec make:auth
+4 - AuthenticatorInterface
+    1 - supports()
+    2 - authenticate()
+    2 Bis - ancienne version de authenticate()
+    3 - createToken()
+    4 - onAuthenticationFailure()
+    5 - onAuthenticationSuccess()
+5 - RememberMe
+
+0 - AFFICHER UN UTILISATEUR CONNECTE : 
+    - Twig = {{ app.user }}
+    - Au niveau du controlleur = $this->getUser(); ( methode defini dans l'abstract )
+    - Au niveau du code = $token->getUser() en ayant déclarer TokenInterface $token et 
+    use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+    - Au niveau du code encore = injection du composant Security qui comporte une methode getuser()
+        private security;
+        public function _construct(Security $security)
+        {
+            $this->security = $security;
+        }
+        puis dans le code : $this->security->getUser()
+
+1 - INTRODUCTION A LA SECURITE :
+
+    Deux notions majeures interviennent dans la conception de sécurité de Symfony :
+    Authentification : Qui êtes vous ? ; vous pouvez vous authentifier de plusieurs manières (HTTP authentification, certificat, formulaire de login, API, OAuth etc)
+    Authorization : Avez vous accès à ? ; permet d'autoriser de faire telle ou telle action ou accéder à telle page sans forcément savoir qui vous êtes.
+    Pour fonctionner, il etait avant nécessaire d'ajouter le composant security : composer require symfony/security-bundle
+
+    La sécurité dans symfony implique 4 éléments :
+    1 - Le firewall: qui est la porte d'entrée pour le système d'authentification, on définit différents firewall (au minimum 1 seul) qui va permettre de mettre en place le bon système de connexion pour l'url spécifiée via un pattern.
+    2 - Le provider : qui permet au firewall d'interroger une collection d'utilisateurs/mot de passe ; C'est une sorte de base de tous les utilisateurs avec les mots de passe. Il existe deux type par défaut : in memory : directement dans le fichier security.yml mais du coup les hash des mots de passes sont disponible dans un fichier : Entity : N'importe quelle entité qui implémente à minima Symfony\Component\Security\Core\User\UserInterface
+    Enfin, plusieurs providers peuvent fonctionner en même temps par exemple in_memory et entity voire plusieurs entités simultanément. http://symfony.com/doc/current/security/entity_provider.html
+    3 - Un encoder : qui permet de générer des hashs/d'encoder des mots de passe ; le plus connu étant MD5 mais vous pouvez utiliser d'autres encoders tels que : sha1, bcrypt ou sodium ( auto selectionnera le meilleur par default ) http://symfony.com/doc/current/security/named_encoders.html
+    4 - Les rôles : qui permettent de définir le niveau d'accès des utilisateurs connectés (authentifiés) et de configurer le firewall en fonction de ces rôles. Les rôles peuvent être hierarchisées afin d'expliquer par exemple qu'un administrateur (ROLE_ADMIN par exemple) et avant tout un utilisateur (ROLE_USER).
+
+
+2 - CREER UNE CLASSE SECURISEE AVEC : MAKE:USER
+
+    s make:user
+    Creation de la classe. ( Pour nous , tout yes/ enter ).A la difference d'une classe normale, la classe User implements l'interface UserInterface. Autrement dit il va y avoir dans notre classe User, les methodes de cette dernière : getRoles(), getUserIdentifier(), eraseCredentials()). Ainsi que l'interface PasswordAuthenticatedUserInterface avec getPassword().
+
+    Explication de la fonction getUserIdentifier().
+    Lors de la création de la classe, on nous pose une question : quelle est l'identifiant que l'on va utiliser pour l'affichage du compte ( identifiant visuel ) et on a choisit email. C'est pourquoi on a :
+    getUserIdentifier(){ return (string) $this->email ;}
+
+    Une fois l'architecture crée il faut faire :
+    s make:entity User 
+    Pour pouvoir créer nos champ ( firstName, lastName, email, ect..).
+    Dans le code on peut les changer de place.
+
+    Lors de la creation de notre User il faut hacher son password : 
+    On a la commande :
+    s security:encode-password
+    ( Pour moi : erreur : Command "security:encode-password" is not defined.
+    Do you want to run "security:hash-password" instead?
+    )
+    Ensuite on nous demande d'entrer notre password ( qui ne s'affiche pas )
+    et on reçoit en retour notre password hacher.
+
+    Parenthèse hachage : 
+    On ne doit pas utiliser la fonction md5() pour hacher. Pourquoi ?
+    La fonction md5() a été très utilisée , simplement c'est un hach simple, une string hachée (ex :'toto') renverra toujours le même hash. Finalement on se retrouve en ligne avec dans fichiers avec des milliers de ligne permettant de faire de correspondance : 
+    	'toto' => be5ber5461brBE
+    	'tata' => zeg54r6brrzg6r
+    Le hacker n'aura alors qu'à comparer la bdd piraté et le fichiers pour retrouver
+    le password original ( si il est repertorié ). Voici une des raisons pour lequel on demande un password très compliqué ( symbole, lettre Maj, ect ..).
+    Il existe même des sites ! : https://md5.gromweb.com/  ,ect...,
+    Il existe egalement la possibilité que 2 utilisateurs aient le même password ce qui va donner 2 entrées similaires au niveau du hash.
+
+    Aujourd'hui on utilise la methode du sel cryptographique, lorsqu'on va hasher un password on va hacher le password concatener à une chaine aléatoire appelée le sel cryptographique.
+    md5('secret' . 'salt');
+    Certaines methodes utilise le sel en suffixe seulement, d'autres en prefixe + suffixe. ( md5('salt' . 'secret' . 'salt'); )
+    Finalement 2 utilisateurs ayant le même mot de passe se retrouve avec un hach different. Le sel est "public" simplement vu que le sel change à chaque utilisateur , le hacker n'arrive pas à retrouver le password de base.
+
+    Dans security.yalm, on a : 
+    security:
+        enable_authenticator_manager: true
+        # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
+        password_hashers:
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+            App\Entity\User:
+                algorithm: auto
+
+    C'est ici que l'on definit l'algorithme pour le hash ( md5, bcrypt, sodium, argon2i, argon2id ...) La valeur auto signifie que Symfony va utiliser le meilleur pour nous.
+    A noter que App\Entity\User: est un nom aléatoire, en théorie on pourrait avoir plusieurs algorithm : 
+    security:
+        password_hashers:
+            first_algo:
+                algorithm: auto
+            second_algo:
+            	algorithm: bcrypt
+            toto: ect....
+    Dans ce cas là, lorsqu'on fait la commande : 
+    security:hash-password , il va nous demander quelle algo utiliser.
+
+            App\Entity\User:
+                algorithm: auto
+                cost: { valeur entre 4 et 31 }
+    On peut definir un cout (cost) plus il est elevé, plus le password est sécurisé mais plus l'energie qui en resulte est elevée...
+
+    La methode getPassword() doit retourner le password hacher et non clair.
+
+    La classe Repository :
+    class UserRepository extends ServiceEntityRepository implements PasswordUpgraderInterface. Cette interface PasswordUpgraderInterface implemente la fonction upgradePassword(PasswordAuthenticatedUserInterface $user, string $newHashedPassword) donc prend en argument l'user et son newPassword.
+
+    Maintenant interressons-nous à cette situation : 
+    Supposons que nous avons l'algorithm bcrypt et deux users enregistrés. Maintenant le meilleur algorithm c'est argon2id donc on change d'algorithm. Un nouvel user s'enregistre : son password sera encodée avec argon2id : 
+
+    John Doe | johndoe@gmail.fr | krtg165r54tr65t (bcrypt)
+    Jane Doe | janedoe@gmail.fr | e6h548t4hb655th (bcrypt)
+    Toto Die | toto@gmail.fr | b999oiuytiyrtu9 (argon2id)
+
+    On va essayer de tout hasher avec argon2id. Le probleme c'est que l'on ne connait pas le mot de passe ! L'astuce consiste à patienter. On attend que l'utilisateur se connecte, puis on recupère son password et on le recrypte en utilisant argon2id.
+
+    la fonction upgradePassword gère cela automatiquement : lorsque l'utilisateur se connecte, elle recupère le password et le rehash avec l'algorythme à jour.
+    Pourquoi l'entity appelle un objet UserInterface ? Car notre classe User ( que l'on aura pu appeler 'Utilisateur' ou 'Membres' ou 'ect..' ) implemente UserInterface, donc quelque soit le nom donnée à notre classe, elle pourra passer en argument notre objet $user.
+
+    Maintenant, on souhaite lier notre $user à nos $pins. On souhaite qu'un utilisateur ait plusieurs pins. 
+    s make:entity Pin 
+    	-> name : user
+    	-> type : relation
+    	-> classe referente : User
+    	-> type of relation : ManyToOne
+    	-> is nullable : no (chaque pin doit avoir un auteur)
+    	-> creer user.pins ? : yes
+    	-> avec le nom user.pins ? : yes
+    	-> delete Pin orphelin ( sans user ?) : yes
+
+    Attention, lors de la migrations:migrate, on a une erreur : 
+     An exception occurred while executing a query: SQLSTATE[23000]: Integrity constraint violation: 1452 Cannot add or update a child row: a foreign key constraint fails (`panterest_d   
+      ev`.`#sql-3dc8_11`, CONSTRAINT `FK_B5852DF3A76ED395` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`))
+    Parce que on a dis que pin.user ne pouvait pas être nul et pour les pins deja crée il va être nul ! Donc erreur !
+    En production il faut rendre le champ nullable d'abord puis mettre une valeur default et enfin le rendre non nullable.
+    En developpement on peut faire :
+    s doctrine:database:drop --force
+    s doctrine:database:create
+    s doctrine:migrations:migrate
+
+3 - CREER L'AUTHENTIFICATION AVEC : MAKE:AUTH
+
+    On crée l'authentification avec : 
+    s make:auth
+    Puis [1] Login from authentificator
+    On appelle notre classe ( comme on veut ) : LoginFormAuthenticator
+    On appelle notre controller : SecurityController
+    Generer une URL logout ? yes
+
+    L'authentification est géré en symfony par les firewall. 
+    Dans security.yalm :
+        providers:
+            # used to reload user from session & other features (e.g. switch_user)
+            app_user_provider:
+                entity:
+                    class: App\Entity\User
+                    property: email 
+        firewalls:
+            dev:
+                pattern: ^/(_(profiler|wdt)|css|images|js)/
+                security: false
+            main:
+                lazy: true
+                provider: app_user_provider
+                custom_authenticator: App\Security\LoginFormAuthenticator
+                logout:
+                    path: app_logout
+
+    Traduction en dev : la degub barre (profiler), les css, les images, le js
+    ne sont pas soumis a la sécurité. Le firewall dev ne s'applique que pour les url qui matchent le pattern. Pour tout les autres : 
+    Traduction en main(n'importe quel nom fonctionne) : 
+    custom_authentification est la manière d'authentifier notre utilisateur ( ici la classe que l'on a crée, cela aurait pu être un token API, ect...). A noter il s'agit d'un tableau , donc on pouvait en mettre plusieurs : [App\Security\LoginFormAuthenticator, truc\machin]
+    lazy: true permet de gagner en performance. L'user sera loader que lorsqu'on tente d'y acceder.
+    Le firewall fonctionne de concert avec un provider. Le provider fournit les utilisateurs. Donc dans le firewall il faut définir un provider, ici c'est app_user_provider qui fait reference à la class: App\Entity\User et à la propriété email en tant qu'identifieur. On pourrait customiser cet identifieur en rajoutant une fonction loadUserByIdentifier dans le UserRepository ( https://symfony.com/doc/current/security/user_providers.html#entity-user-provider ). Il faut egalement définir un chemin de deconnexion : logout : path.
+
+    Allons dans notre classe LoginFormAuthenticator elle hérite de AbstractLoginFormAuthenticator qui hérite de AbstractAuthenticator qui implemente AuthentificatorInterface. 
+    IMPORTANT  : Tous les authenticator doivent implementer cette interface : AuthentificatorInterface ( donc ici c'est le cas via la classe parente )
+
+4 - AUTHENTIFICATORINTERFACE : 
+
+    On se rend dans AuthentificatorInterface : on a 5 methodes : 
+    1 - supports()
+    2 - authenticate() 
+    3 - createToken()
+    4 - onAuthentificationSuccess()
+    5 - onAuthentificationFailure()
+    Une fois le systeme d'authentification installer, support() sera appelée à chaque requête, son rôle est de determiner si la requête requiert l'authentification. authenticate() se charge du processus d'authentification. createToken() permet post-authentification de sauvegarder en session de nombreuses informations grâce à un "token" serialisé. onAuthentificationSuccess(), l'action a entreprendre en cas de succès, onAuthentificationFailure(), l'action à entreprendre en cas d'echec.
+    On va voir methodes par methodes. Le gros se trouve dans authenticate().
+
+    1 - supports()
+    La fonction supports se trouve dans AbstractLoginFormAuthenticator : 
+    public function supports(Request $request): bool
+    {
+        return $request->isMethod('POST') && $this->getLoginUrl($request) === $request->getPathInfo();
+    }
+    Elle était écrite avant : return self::LOGIN_ROUTE === $request->attributes->get('_route') && $request->isMethod('POST'). dd($request->attributes->get('_route')) permet d'acceder à notre nom de route ( app_home, app_create_pins, ...). Grosso modo si la route est app_login et la methode est POST alors l'authentificator doit faire son boulot. Petite remarque : ainsi le formulaire d'identification doit retourné sur la même page : si on met action="une_autre_page", l'identification n'aura pas lieu.
+
+    2 - authenticate()
+    public function authenticate(Request $request): Passport
+    {
+        $email = $request->request->get('email', '');
+        $request->getSession()->set(Security::LAST_USERNAME, $email);
+        return new Passport(
+            new UserBadge($email),
+            new PasswordCredentials($request->request->get('password', '')),
+            [ new CsrfTokenBadge('authenticate', $request->request->get('_csrf_token')), ]
+        );
+    }
+    Il recupère l'email et sauvegarde l'email dans la session ( en cas d'erreur d'authentification ça permet de remettre l'email dans le champ ) via la const Security::LAST_USERNAME.
+    Symfony a opéré un changement important avant on avait tout le traitement qui se déroulait dans cette partie authenticate() ( ancienne : getCredentials(), getuser(), checkCredentials()). Aujourd'hui on va générer un passport qui va être écouter par des Listeners et vérifié par différentes methodes. Ce passport prend en paramètre, premierement l'utilisateur ( sous forme de Badge), le password ( sous forme de Badge) et enfin des Badges additionnels ( comme le token, ect..)
+
+    Si on va dans Passport on voit qu'il ne fait qu'ajouter les badges dans un tableau badges[].
+    Ce qui va se passer ensuite c'est que l'on va avoir des Listeners qui vont écouter le passport et écouter les badges. Ainsi Symfony\Component\Security\Http\EventListener\UserCheckerListener possède la methode preCheckCredentials : 
+        public function preCheckCredentials(CheckPassportEvent $event): void
+            {
+                $passport = $event->getPassport();
+                if ($passport->hasBadge(PreAuthenticatedUserBadge::class)) {
+                    return;
+                }
+                $this->userChecker->checkPreAuth($passport->getUser());
+            }
+    Il recupère le Passport et va transferer à userChecker l'utilisateur qu'il a recupérer depuis le badge. Dans Symfony\Component\Security\Http\EventListener\CheckCredentialsListener, on a
+        public function checkPassport(CheckPassportEvent $event): void
+            {
+                $passport = $event->getPassport();
+                if ($passport->hasBadge(PasswordCredentials::class)) {
+                    $user = $passport->getUser();
+                    if (!$user instanceof PasswordAuthenticatedUserInterface)   
+                        {   throw new \LogicException(blabla);  }
+                    $badge = $passport->getBadge(PasswordCredentials::class);
+                    $presentedPassword = $badge->getPassword();
+                        /* Verification du password */
+                    if ('' === $presentedPassword) {
+                        throw new BadCredentialsException('The presented password cannot be empty.');
+                    }
+                    if (null === $user->getPassword()) {
+                        throw new BadCredentialsException('The presented password is invalid.');
+                    }
+                    if (!$this->hasherFactory->getPasswordHasher($user)->verify($user->getPassword(), $presentedPassword, $user instanceof LegacyPasswordAuthenticatedUserInterface ? $user->getSalt() : null)) {
+                        throw new BadCredentialsException('The presented password is invalid.');
+                    }
+    Ici il recupère le passport, va chercher l'utilisateur associé, va chercher le password entré dans le passport et va faire ensuite toute une serie de test pour verifier le password.
+    De meme, Symfony\Component\Security\Http\EventListener\CsrfProtectionListener implemente la methode checkPassport(CheckPassportEvent $event): void
+            {
+                $passport = $event->getPassport();
+                if (!$passport->hasBadge(CsrfTokenBadge::class)) 
+                    {   return; }
+                $badge = $passport->getBadge(CsrfTokenBadge::class);
+                if ($badge->isResolved()) 
+                    {   return; }
+                $csrfToken = new CsrfToken($badge->getCsrfTokenId(), $badge->getCsrfToken());
+                if (false === $this->csrfTokenManager->isTokenValid($csrfToken)) {
+                    throw new InvalidCsrfTokenException('Invalid CSRF token.');
+                }
+    Recupere le passport, puis le badge associé au token Crsf et ensuite valider la requete.
+
+    Ce nouveau systeme permet de rajouter des nouveaux badges et des listeners qui vont venir valider ces badges. Il est donc plus flexible que l'ancien systeme.
+
+    2-Bis - Ancienne version de authenticate() : 
+    Avant authenticate() et son passport on avait 3 fonctions : getCredentials(), getuser(), checkCredentials()).
+        getCredentials() {
+                $credentials = [
+                    'email' => $request->request->get('email'),
+                    'password' => $request->request->get('password'),
+                    'csrf_token' => $request->request->get('_csrf_token')
+                    ];
+                $request->getSession()->set(
+                    Security::LAST_USERNAME,
+                    $credentials['email']
+                    );
+                return $credentials;
+                }
+    /* Donc avec getCredentials(), on sauvegardait déjà l'email dans la session, mais en plus les données passées étaient mise au niveau d'un tableau associatif nommé $credentials[]. */
+        getUser($credentials, UserProviderInterface $userProvider) {
+                $token = new CsrfToken('authentificate', $credentials['csrf_token']);
+                if(!this->csrfTokenManager->isTokenValid($token)) {
+                    throw new InvalidCsrfTokenException() ;
+                }
+                $user = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $credentials['email']]);
+                if(!$user){
+                    throw new CustomUserMessageAuthenticationException('Email couldn't be found.');
+                }
+                return $user
+            }
+    /* Donc on verifie en premier la validité du token puis la vaidité de l'email et si tout est bon, on recupere l'utilisateur. On remarquera que le password peut être faux, ici getUser() retourne l'utilisateur sur la base du token et de l'email. */
+        checkCredentials($credentials, UserInterface $user)
+                {
+                    $this->passwordEncoder->isPasswordValid($user, $credentials['password']);
+                }
+    /* checkCredentials() verifie le password, on utilise notre passwordEncoder et on appelle sa methode isPasswordValid(). isPasswordValid va aller chercher l'encodeur (dans security.yalm) relative à la classe ( cad App\Entity\User ) et verifier le password. Dans le tuto il trouve l'interface UserPasswordEncoderInterface grâce à la commande : s debug:autowiring password */
+
+    3 - createToken()
+    public function createToken(Passport $passport, string $firewallName): TokenInterface
+    {
+        return new PostAuthenticationToken($passport->getUser(), $firewallName, $passport->getUser()->getRoles());
+    }
+    createToken() se trouve au niveau de AbstractAuthenticator. Lorsque la connexion s'est bien passée on a un objet postAuthentificateToken qui est crée et qui contient : le nom du firewall, l'utilisateur ( id, email, password) et les roles de l'utilisateur de manière serialisée. (donc pour l'afficher il faudra le déserialiser ) qui est passé dans la session ( on le voit si session_start et dd($_SESSION) par exemple ). Attention, Symfony possède egalement un systeme de refresh de l'utilisateur à chaque page appelée. Ce qui permet si des informations ont été changées entre temps de les modifier.
+
+    4 - onAuthenticationFailure()
+    public function onAuthenticationFailure(Request $request, AuthenticationException $exception): Response
+    {
+        if ($request->hasSession()) {
+            $request->getSession()->set(Security::AUTHENTICATION_ERROR, $exception);
+        }
+
+        $url = $this->getLoginUrl($request);
+
+        return new RedirectResponse($url);
+    }
+    onAuthenticationFailure() se situe au niveau de AbstractLoginFormAuthenticator. onAuthenticationFailure() est appelée automatiquement lorsqu'une exception est levée et permet que quelque soit l'exception qui est levée, on va la setter au niveau de la constante AUTHENTICATION_ERROR, puis on recupère l'url de la page de login et on redirige vers cette url. Dans notre SecurityController methode login() on injecte $error dans notre render. $error recupère le Security::AUTHENTICATION_ERROR soit via la requete soit via la session. 
+    Toutes les exceptions doivent hériter de AuthenticationException. En pratique on définira plutot des exceptions de CustomUserMessageAuthenticationException('mon_message').  
+    On peut egalemment définir des "traductions" de nos messages. Supposons que le message d'erreur soit : 'Incorrect Credentials.' . On peut aller créer un fichier dans translations/security.en.yalm et écrire : 'Incorrect credentials.' : 'Oooops problem', cela marchera car 
+    dans la view login.html.twig, l'erreur est affichée avec un filtre |trans(pour translations)
+
+    Supposons que l'on souhaite rajouter un message flash en cas d'erreur ou de succès : on peut alors faire : $request->getSession()->getFlashBag()->add('error' 'Invalid Credential'); 
+    */
+
+    5 - onAuthenticationSuccess()
+    public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
+    {
+        if ($targetPath = $this->getTargetPath($request->getSession(), $firewallName)) {
+            return new RedirectResponse($targetPath);
+        }
+
+        // For example:
+        //return new RedirectResponse($this->urlGenerator->generate('some_route'));
+        throw new \Exception('TODO: provide a valid redirect inside '.__FILE__);
+    }
+    /*  onAuthenticationSuccess() nous demande ou rediriger l'utilisateur en cas de succès.
+    Donc par défault si cela n'a pas été mis, il y aura une erreur. On décommente la ligne return et on met notre nom de route (ex :'app_home'). Le code avec $targetPath signifie qu'un utilisateur non-connecté qui souhaitait se rendre sur une page reservé ( ex : 'app_pins_create' ) sera redirigé d'abord vers la connexion ('app_login') puis vers la page souahitée ( donc 'app_pins_create' et non 'app_home' ). Cela est possible grâce à l'implementation du trait : TargetPathTrait. A l'interieur de ce dernier, on voit qu'on stocke ou voulait se rendre l'utilisateur à l'interieur de la session. 
+    A noter : lorsqu'on se rend sur une page reservée et que l'on est pas connecté cela appelle la methode start() présent dans AbstractLoginFormAuthenticator. C'est elle qui nous redirige. Il semble que l'on peut egalement effectuer cette redirection dans security.yaml : firewalls : main : form_login : login_path : app_login ( ou le nom de notre route )  */ 
+
+5 - REMEMBERME
+
+    RememberMe. On crée une checkbox name="_remember_me". Puis dans authentificate on rajoute un badge à la suite du Token : [ new TokenBadge(blabla), new RememberMeBadge()] tout simplement puis : 
+    https://symfony.com/doc/current/security/remember_me.html
+        firewalls:
+            main:
+                remember_me:
+                    secret:   '%kernel.secret%' # required
+                    lifetime: 604800 # 1 week in seconds
+    Et voila le cookie sera actif une semaine
+    On pourrait egalement configurer un : always_remember_me
+    Si on fait fait remember me, puis on ferme le navigateur et on refresh la page, on sera connecter. On fait inspecter -> Application -> Cookie ( pour notre domaine : https://127.0.0.1.8000) on verra notre Cookie REMEMBERME
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Creer un systeme d'authentification independant en Symfony : 
+    Grafikart : 
+        https://grafikart.fr/tutoriels/security-passport-symfony-1945
+
+En + :     
+Il recupère l'email et sauvegarde l'email dans la session ( en cas d'erreur d'authentification ça permet de remettre l'email dans le champ ) via la const Security::LAST_USERNAME.
+    On pourrait le faire manuellement en faisant dans authentificate :
+    $request->getSession()->set('app_login_email', $request->request->get('email'));
+    Puis dans la view Twig : 
+    {{ app.session.get('app_login_email')}}
+    Si on l'avait précedement mis dans une constante LAST_EMAIL dans Security ; 
+    {{ app.session.get(constant('App\\Controller\\SecurityController::LAST_EMAIL'))}}
+
+
+
+0 - On parle ici de PassportUpgrade qui était defini dans UserRepository. Cette fonction permet de restocker le password de temps en temps ( utile si chgmt d'algo ). Mais pour pouvoir le restocker encore faut-il le récuperer !. Pour cela ( tuto Honoré ) dans notre LoginFormAuthenticate, on doit inplements PasswordAuthenticatedUserInterface. Et on doit implementer qu'une seul methode  : 
+public function getPassword(Request $request): ?string;
+{   return $request->request->get('password', ''); }
+
+SECURITY EVENTS : 
+La nouvelle version de Symfony nous offre une miriades d'écouteurs : 
+https://symfony.com/doc/current/security.html#security-events
+
+CheckPassportEvent ==> Dispatched after the authenticator created the security passport. Listeners of this event do the actual authentication checks (like checking the passport, validating the CSRF token, etc.)
+
+AuthenticationTokenCreatedEvent ==> Dispatched after the passport was validated and the authenticator created the security token (and user). This can be used in advanced use-cases where you need to modify the created token (e.g. for multi factor authentication).
+
+AuthenticationSuccessEvent ==> Dispatched when authentication is nearing success. This is the last event that can make an authentication fail by throwing an AuthenticationException.
+
+LoginSuccessEvent ==> Dispatched after authentication was fully successful. Listeners to this event can modify the response sent back to the user.
+
+LoginFailureEvent ==> Dispatched after an AuthenticationException was thrown during authentication. Listeners to this event can modify the error response sent back to the user.
+Par exemple on pourra imaginer après 3 LoginFailureEvent, on bloque l'utilisateur pour 10min.
+
+LogoutEvent ==> Dispatched just before a user logs out of your application. See Security.
+
+TokenDeauthenticatedEvent ==> Dispatched when a user is deauthenticated, for instance because the password was changed. See Security.
+
+SwitchUserEvent ==> Dispatched after impersonation is completed. See How to Impersonate a User.

@@ -1,0 +1,207 @@
+Tutoriel Teachers du net
+INTRO :
+Lors d'un composer update on peut avoir une erreur.
+Copier dans google. Voir les solutions.
+
+Dans cet exemple, on utilise la version 2 du bundle DoctrineMigrationsBundle, mais lors de la mise à jour on utilise une version 3 et il y a eu des changements dans l'organisation des dossier : avant le dossier Migration se trouvait dans src/ et maintenant à la racine /
+composer show // Liste tous les packages et leur version ( composer show le_package ) 
+
+config -> package -> doctrine.migrations.yalm => doctrine_migrations : migration_path  == 
+Nous donne le chemin utilisé.
+
+Ici la solution du problème consiste à couper l'ancien code du fichier doctrine.migrations.yalm et à coller le nouveau code.
+config -> package -> doctrine.migrations.yalm => doctrine_migrations : migration_path  == 
+Est la nouvelle manière de nous donner le chemin. Dans la version précédentes, le paramètre migration_path était absent ( le chemin était donné sans ce paramètre , de même l'ancien namespace App\Migration est remplacé par DoctrineMigrations. 
+
+Une autre solution est d'effectuer la commande : 
+composer recipes --force -v puis composer install. On va essayer de comprendre cela
+
+LA COMMANDE COMPOSER CREATE-PROJECT symfony/skeleton :
+symfony new projet === composer create-project symfony/skeleton projet
+En fait c'est comme si on installait un package nommé symfony/skeleton. On trouve ce package sur son repo GitHub : https://github.com/symfony/skeleton.git
+Ce package contient 2 fichiers : un fichier LICENCE et un composer.json
+La commande create-project de composer consiste à cloner le repo et à faire composer install. Donc on peut le faire egalement manuellement : git clone https://github.com/symfony/skeleton.git projet
+cd projet. A ce stade là on a un dossier contenant nos 2 fichiers : 
+Projet/ {
+			LICENCE
+			composer.json	}
+Puis on fait composer install. On se rend dans notre projet et on fait tree -L 1 : on voit que l'on a maintenant un projet complet ( Attention, il ne s'agit pas du --webapp mais de la version minimale ) avec bin/, config/, public/, src/, var/, vendor/, composer.lock, symfony.lock et LICENCE.
+Cela est possible grace à Symfony Flex et aux recipes.
+
+On ouvre le fichier composer.json : 
+    "name": "symfony/skeleton",
+    "type": "project",
+    "license": "MIT",
+    "description": "A minimal Symfony project recommended to create bare bones applications",
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "require": {
+        "php": ">=7.2.5",
+        "ext-ctype": "*",
+        "ext-iconv": "*",
+        "symfony/flex": "^1.17|^2"
+    },
+    "flex-require": {
+        "symfony/console": "*",
+        "symfony/dotenv": "*",
+        "symfony/framework-bundle": "*",
+        "symfony/runtime": "*",
+        "symfony/yaml": "*"
+    },
+    "require-dev": {
+    }, puis config, ect...
+On voit que l'on a plusieurs require. Donc lorsqu'on fait composer install, composer va lire le fichier et require les packages demandés. Il va installer "symfony/flex": "^1.17|^2" à partir de là il pourra utiliser la commande "flex-require" pour installer les differents packages : Flex va va s'occuper des Recipes puis demandera à composer d'installer les packages.7
+
+SYMFONY FLEX ET LES RECIPES :
+On trouve les Recipes sur : https://flex.symfony.com/ . On distingue les recipes officielles ( vert : Official) et celle de la communauté ( rouge : Contrib ). Lorsqu'on clic sur "Recipe" on est redirigé vers le repo GitHub où est hebergé la recipe. 
+
+PREMIERE RECIPE : symfony/console : 
+la première chose que l'on voit il y a plusieurs versions : 3.3, 4.2, 4.4, 5.1, 5.3
+Les versions qui sont listés ici sont les versions de Symfony. ( avec Symfony 3.3 il faudra utiliser la version 3.3, ect..., pour Symfony 6, il utilisera la version 5.3...)
+
+Quelque soit la recette que l'on prend, on aura toujours le fichier manifest.json : c'est le fichier de configuration de la recette. 
+Dans la recipe symfony/console on clic sur 5.3 on a un fichier manifest.json et un dossier bin/. On clic sur le manifest.json, on a :
+{
+    "copy-from-recipe": {
+        "bin/": "%BIN_DIR%/"
+    },
+    "aliases": ["cli"]
+}
+Avec "aliases" est defini un alias à symfony/console ( donc on pourra faire composer require cli pour le telecharger ). Avec "copy-from-recipe" il est demandé de copier le contenu du dossier bin/ de la recette dans le dossier bin/ de notre projet.
+
+On peut remarquer que quand le projet est fini d'être installer, il n'y a plus de flex-require dans le composer.json : il n'y a que de simple require. En effet une fois executée la Recipe n'a plus lieu d'être. Flex demandera alors à composer d'installer tous les require de tous les packages.
+
+DEUXIEME RECIPE : "symfony/dotenv"
+On retourne sur https://flex.symfony.com/, on trouve "symfony/dotenv" et là on voit qu'il n'y a pas de lien Recipe. Donc dans ce càs là, flex va juste installer le package sans copier quoi que ce soit depuis un repo.
+
+TROISIEME RECIPE : "symfony/framework-bundle"
+On va dans la recipe, on a public/, config/, src/, manifest.json, post-install.txt
+manifest.json : 
+{
+    "bundles": {
+        "Symfony\\Bundle\\FrameworkBundle\\FrameworkBundle": ["all"]
+    },
+    "copy-from-recipe": {
+        "config/": "%CONFIG_DIR%/",
+        "public/": "%PUBLIC_DIR%/",
+        "src/": "%SRC_DIR%/"
+    },
+    "composer-scripts": {
+        "cache:clear": "symfony-cmd",
+        "assets:install %PUBLIC_DIR%": "symfony-cmd"
+    },
+    "env": {
+        "APP_ENV": "dev",
+        "APP_SECRET": "%generate(secret)%"
+    },
+    "gitignore": [
+        "/.env.local",
+        "/.env.local.php",
+        "/.env.*.local",
+        "/%CONFIG_DIR%/secrets/prod/prod.decrypt.private.php",
+        "/%PUBLIC_DIR%/bundles/",
+        "/%VAR_DIR%/",
+        "/vendor/"
+    ]
+}
+Ici premierement il dit d'enregistrer dans le fichier bundles ( config -> bundles.php ) : "Symfony\\Bundle\\FrameworkBundle\\FrameworkBundle": ["all"]. Ensuite il va copier le contenu du dossier config/ dans le config de notre projet et pareil pour public/ et src/.
+Le mot-clé composer-script permet de copier les deux commandes dans le fichier composer.json à la section "scripts". Si on va dans le composer.json d'un projet symfony crée, on voit : 
+    "scripts": {
+        "auto-scripts": {
+            "cache:clear": "symfony-cmd",
+            "assets:install %PUBLIC_DIR%": "symfony-cmd"
+        },
+        "post-install-cmd": [
+            "@auto-scripts"
+        ],
+        "post-update-cmd": [
+            "@auto-scripts"
+        ]
+    },
+Ici cela veut dire après un install ou après un update on va executer "auto-scripts" cad nos deux commandes. ( le cmd fait reference à la commande : ex : symfony cache:clear). Certains package/bundle viennent avec des assets (img, js, css), la 2eme commande permet de copier ces assets et les mettre dans notre dossier public.
+Le mot-clé "env" va prendre nos variables d'environnement et les définir au niveau de notre fichier .env ( on voit que pour APP_SECRET, il va générer une clé secrète ). Rendons-nous dans le .env d'un projet crée on voit : 
+###> symfony/framework-bundle ###
+APP_ENV=dev
+APP_SECRET=8b35a572eb6156015ac8ebdfe45bf9a0
+###< symfony/framework-bundle ###
+Ce qui est interressant c'est que si on retire le bundle, il sera exactement quoi retiré car tout ce qui est ajouté dans les fichiers 'partagés' entre differents packages est doté de signe permettant d'identifier le package d'origine.
+Enfin il va rajouter des dossiers et fichiers dans .gitignore
+
+Si on se rend dans le post-install.txt, on voit : 
+  * <fg=blue>Run</> your application:
+    1. Go to the project directory
+    2. Create your code repository with the <comment>git init</comment> command
+    3. Download the Symfony CLI at <comment>https://symfony.com/download</> to install a development web server
+  * <fg=blue>Read</> the documentation at <comment>https://symfony.com/doc</>
+ Il s'agit du texte qui va s'afficher dans le terminal à l'issue de la commande de création après "What is next?"
+
+LA RECIPE DE BASE : symfony/flex
+symfony/flex lui-même a une recipe, on va dedans, version 1.0 et la on a .env/ et manifest.json qui ne contient que cette instruction : "copy-from-recipe": { ".env": ".env" }
+
+UNE AUTRE RECIPE : phpunit/phpunit
+Si on se rend dans celle-ci, version 9.3, et on a : tests/, .env.test, manifest.json, phpunit.xml.dist
+A noter : ici il s'agit de phpunit, ce package a un cycle de release different des packages symfony.
+Si on va dans son manifest.json : {
+    "copy-from-recipe": {
+        ".env.test": ".env.test",
+        "phpunit.xml.dist": "phpunit.xml.dist",
+        "tests/": "tests/"
+    },
+    "gitignore": [
+        "/phpunit.xml",
+        ".phpunit.result.cache"
+    ]}
+
+UNE AUTRE RECIPE : symfony/twig-bundle
+On se rend dans le dossier : config/package/, templates/ et manifest.json et dans le manifest : 
+{
+    "bundles": {
+        "Symfony\\Bundle\\TwigBundle\\TwigBundle": ["all"]
+    },
+    "copy-from-recipe": {
+        "config/": "%CONFIG_DIR%/",
+        "templates/": "templates/"
+    },
+    "conflict": {
+        "symfony/framework-bundle": "<5.3"
+    }
+}
+Il rajoute une ligne au fichier config->bundles.php et il va rajouter dans le dossier config un dossier package ayant le même contenu que celui de la recipe.
+
+CONCLUSION:
+Au debut on avait un problème avec le package DoctrineMigrationsBundle. On va rechercher la recette qui lui ait associée : doctrine/doctrine-migrations-bundle. On voit que l'on a 3 versions 1.2, 2.2 et 3.1. De même que phpunit, le pack doctrine a un cycle de release different de Symfony.
+Ici il s'agissait d'un changement d'organisation de dossier lors du passage de la version 1.2 à 2.2.
+
+On tape :
+composer recipes 
+Cela va lister toutes les recipes qui sont installées. Si une recipe n'est pas à jour on voit a coté de la recipe (update available). On peut faire aussi : composer recipe notre_recipe pour avoir les infos sur cette dernière. Enfin on nous donne une commande qui permet de mettre à jour notre recipe : 
+( dans ce cas-là : composer recipes:install doctrine/doctrine-migrations-bundle --force -v )
+
+Taper la commande composer recipes --force -v puis composer install
+permet elle de mettre à jour toutes les recipes installées.
+
+Dans notre cas, un dossier migrations à été crée à la racine cependant nos migrations sont toujours présentes dans notre dossier src/Migration, on va donc les copier dans le nouveau dossier et supprimé l'ancien. Après avoir effectuer tout cela, on verifie que tout marche en supprimant et recréant la bdd ( doctrine:database:drop -- force puis d:d:create puis doctrine:migrations:migrate )
+
+EN PLUS : ERREUR : METADATA IS NOT UP TO DATE
+Et là on a une erreur : 
+" The metadata storage is not up to date, please run the sync-metadata-storage command"
+symfony console nous montre toutes les commandes : on trouve la commande et on la fait
+doctrine:migrations:sync-metadata-storage
+L'erreur est toujours la même ! Lorsque j'ai une erreur metadata, la première chose à faire est un symfony cache:clear. Ici même si on fait cela, l'erreur est toujours là, cela est du à l'utilisation de la bdd MariaDB : il faut se rendre dans .env.local ( voir .env si .env.local est vide !) ( et ici modifier la version 5.7 par mariadb-version(ex:10-4-10)). Et la ça marche
+Les metadata storage peuvent être en relation avec le cache ou avec un faux acces à la bdd.
+
+Au niveau de composer.json, dans les require on ne voit pas de package DoctrineMigrationsBundle. Ceci est du à l'utilisation de symfony/orm-pack. Si on se rend sur le site Symfony Flex est que l'on clic sur package detail on voit que l'on a 4 package dedans : 
+doctrine/doctrine-bundle: *
+doctrine/doctrine-migrations-bundle: *
+doctrine/orm: *
+symfony/proxy-manager-bridge: *
+Ainsi symfony/orm-pack est finalement la réunion de ces 4 packages.
+Si on tape la commande 
+composer unpack symfony/orm-pack , on se retrouve alors avec les 4 packages visibles dans notre composer.json -> require.
+
+Le systeme de recipes et de pack c'est tout ceci que fait la magie de Symfony !
+
+
+Il faut commiter le composer.lock tout d'abord il faut comprendre le rôle de composer.lock .
+Ce fichier nous permet d'enregistrer la version exact de notre dépondance et de la charger lors de mise en prod.
+De même il existe symfony.lock qui permet d'enregistrer la version exacte de la recipe effectuée et permettra à SymfonyFlex de la rééffectuée lors de la mise en prod. Conclusion : il faut egalement le commiter.

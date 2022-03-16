@@ -1,0 +1,169 @@
+POURQUOI WEBPACK : 
+Webpack est un module bundle qui joue plusieurs rôles.
+D'abord Webpack est un compilateur css. Expliquons le sass avant tout :
+Le sass est un langage css simplifié, par exemple : 
+
+En CSS : 
+section h1 a 
+{	color:red;	} 
+section h1 
+{	font-size: 20px;  }
+
+En SASS : Mais on doit le compiler en css afin que le navigateur puisse comprendre
+section {
+	h1 {
+		font-size: 20px;
+		a {
+			color :red;
+		}
+	}
+}
+
+Deuxiemement Webpack unifie nos fichiers : 
+Dans notre projet, a mesure qu'il se developpe on se retrouve avec la multiplication d'appels js
+Ex : <script src="https://cdn.jsdelivr.net/npm/@popperjs/popper.min.js" integrity="sha3bla"></script>
+     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5bootstrap.min.js" integrity=""></script>
+  	 <script src="https://cdn.jsdelivr.jquery.js" integrity="sha384-blabla"></script>
+  	 <script src="https:autre-js.js" integrity="sha384-blabla"></script>
+Finalemment on va chercher à tout mettre dans un fichier app.js compresser et minifier pour la prod
+
+Schematiquement : 
+plein.js + plein.png + plein.hbs + plein.sass + plein.jpg + plein.cjs 
+														====>>>> Webpack 
+un_seul.js + un_seul.css + un_seul.jpg + un_seul.png				<<<<=======
+
+
+
+CONFIGURATION DE WEBPACK ENCORE = WEBPACK.CONFIG.JS
+
+La configuration de Webpack peut être un peu compliqué, c'est pourquoi Symfony a crée un outil appelé Webpack Encore ( bien qu'on puisse l'utiliser sans symfony ) destiné à simplifier l'installation.
+
+Le fichier de configuration de Webpack est webpack.config.js. 
+Si on ouvre ce fichier on verra plein de reference à Encore : c'est normal car on utilise Webpack Encore, si ce n'était pas la cas, il n'y aurait pas de reference à Encore.
+Si on descend ce fichier vers la fin on a : 
+
+    // enables Sass/SCSS support
+    //.enableSassLoader()
+    // uncomment if you use TypeScript
+    //.enableTypeScriptLoader()
+    // uncomment if you use React
+    //.enableReactPreset()
+
+Voici tout la magie de WebpackEncore : pour utiliser SASS il suffit de décommenter le .enableSassLoader() pareil pour TypeScript et pour React ! 
+La dernière ligne signifie qu'il genere le fichier d'utilisation de Webpack que l'on pourra utiliser.
+
+Si on regarde en haut du fichier on a :
+Encore
+    // directory where compiled assets will be stored
+    .setOutputPath('public/build/')
+    // public path used by the web server to access the output path
+    .setPublicPath('/build')
+    // only needed for CDN's or sub-directory deploy
+    //.setManifestKeyPrefix('build/')
+Grosso modo tout ce qu'il compile il le met dans public/build/
+
+Juste en dessous on a : 
+    .addEntry('app', './assets/app.js')
+Cela spécifie le chemin de sortie du processus : Webpack va aller dans assets/app.js ( qui lui même appel le css ) et va tout compiler au niveau d'un fichier appelé 'app' qui va se trouver dans build/. A noter que si on change 'app' pour 'toto' alors tout sera compilé dans un fichier toto dans build/
+
+
+LE MONDE JAVASCRIPT : 
+Webpack fonctionne avec JS. Il nous faut donc comprendre 2-3 choses.
+Le fichier package.json est l'equivalent du composer.json dans le monde js
+NPM et YARN sont les equivalents commande de composer dans le monde js
+Pour pouvoir utiliser l'un des 2, il nous faut installer nodejs. Une fois cela fait, npm est installé.
+Si on voulait installer yarn il faut l'installer manuellement ( choco install yarn ).
+La première chose à faire est la commande : npm install ou yarn ( yarn == yarn install ).
+Cette commande installer toutes nos dependances dans un dossier nommé node_modules ( par défault deja installé lorsqu'on effectuer un nouveau projet symfony --webapp ).
+
+EXECUTER LA COMPILATION :
+Si on va dans package.json, on voit : 
+    "scripts": {
+        "dev-server": "encore dev-server",
+        "dev": "encore dev",
+        "watch": "encore dev --watch",
+        "build": "encore production --progress"
+Il s'agit des commandes que l'on peut effectuer : dev pour le developement, dev --watch permet de regarder un peu plus, build c'est pour la production donc en plus il va minifier.
+Pour executer le script : npm run + nom du script ou yarn + nom du script
+Donc on va executer : 
+npm run dev ( === yarn dev )
+
+On se souvient de : .addEntry('app', './assets/app.js')
+Lors de l'execution il va dans ./assets/app.js puis compile tout dans build/ 
+
+On se retrouve alors avec nos fichiers (app.js, app.css, runtime.js, entrypoints.json, manifest.json ) dans un dossier public/build/.
+A noter lorsqu'on réexecute la commande on a pas besoin de supprimer nos fichiers en amont. (a cause de la ligne  .cleanupOutputBeforeBuild() dans le webpack.config.js ).
+Une fois la compilation effectué, à chaque modification dans nos fichier, il recompile automatiquement ! Donc pas besoin de refaire : yarn dev ou npm run dev.
+Le fichier entrypoints.json nous spécifie comment recuperer notre compilation : 
+  "entrypoints": {
+    "app": {
+      "js": [
+        "/build/runtime.js",
+        "/build/vendors-node_modules_symfony_stimulus-bridge_dist_index_js-node_modules_core-js_modules_es_ob-7db861.js",
+        "/build/app.js"
+      ],
+      "css": [ "/build/app.css"  ]
+
+COMMENT UTILISER WEBPACK DU COUP ?
+Pour utiliser Webpack, il faut effectuer une compilation ( yarn dev ou npm run dev ). Il faut mettre tout notre css dans assets/styles/. Si il existe du code css en dehors du fichier app.css alors il faut le déclarer dans assets/app.js après la ligne : import './styles/app.css'; Rajouter notre fichier :
+( import './styles/style.css'; ou import './styles/gd_resolution.css';, ect...)
+A partir de là, tout notre code a été compilé. 
+Pour l'affichage on aurait pu utiliser la fonction Twig classique asset() : 
+Dans <head> : <link rel="stylesheet" href="{{ asset('build/app.css') }}"
+Avant </body> : <script src="{{ asset('build/runtime.js') }}"></script>
+				<script src="{{ asset('build/app.js') }}"></script>
+				, ect ...
+On rappelle que asset est recommandée car il facilite le passage à un CDN au lieu d'écrire les paths en dur (href="build/app.css") les paths sont souples.
+
+En fait Webpack Encore nous donne accès à une fonction pour le CSS : 
+encore_entry_link_tags('') auquel on donne le nom de notre entrée : 
+.addEntry('app', './assets/app.js') => encore_entry_link_tags('app')
+.addEntry('toto', './assets/app.js') => encore_entry_link_tags('toto')
+Encore nous donne egalement accès à une fonction pour le JS
+encore_entry_script_tags('')
+
+UTILISER SASS : 
+On décommente //.enableSassLoader() dans webpack.config.js
+Puis yarn watch (ou npm run watch ) : boum, on a une erreur : 
+  Error: Install sass-loader & sass (or node-sass) to use enableSassLoader()
+    yarn add sass-loader@^12.0.0 sass --dev  
+Donc on fait : yarn add sass-loader@^12.0.0 sass --dev  ( ou npm install )
+puis : yarn watch(ou npm run watch )
+On peut maintenant écrire du Sass. Ne pas oublier de renommer le fichier avec l'extension .sass ou .scss et egalememnt le déclarer dans assets/app.js !!
+
+UTILISER BOOTSTRAP AVEC WEBPACK :
+https://symfony.com/doc/current/frontend/encore/bootstrap.html
+Au lieu de faire tous nos appels dans le fichier template de base, on va déclarer Bootstrap à Webpack.
+On supprime tous nos appels <link> et <script> puis on fait la commande : 
+yarn add bootstrap --dev ( ou npm install bootstrap --save-dev) 
+Bootstrap est alors installer ( pour le voir on peut alors dans package.json : "devDependencies" ) mais pas encore importer ; on va dans nos fichiers css ( ou scss ) et on l'importe : 
+@import "~bootstrap/scss/bootstrap";
+Le tilta ~ fait reference au dossier node_modules.
+
+Pour importer le JS : yarn add jquery @popperjs/core --dev.
+La documentation nous dis que faire des require dans app.js.
+Il s'agit de l'ancienne manière on va préférer faire un import dans app.js: 
+import $ from 'jquery';
+import 'bootstrap';
+
+PRODUCTION :
+Une fois nos dependances installés si on va dans build/ on a maintenant un fichier vendor-plein-de-chose.js où sont installées nos depedances.
+Si on est en production on va faire : yarn build
+Il s'agit de versions beaucoup plus optimisées.( compressé et minifié )
+
+Si on veut Webpack copie les images , on peut les copier dans assets/
+puis aller dans webpack.config.js. A la suite du enableSassLoader
+on peut copier : 
+.copyFiles({
+    from : './assets/images',
+    to : '[path][name].[hash:8].[ext]',
+    context : './assets'
+})
+Mais on a alors une erreur  : 
+  Error: Install file-loader to use copyFiles()
+    yarn add file-loader@^6.0.0 --dev
+
+Il faut remplacer le nom de notre image dans notre code : 
+
+asset('path/to/images/placeholder.jpg')
+asset('build/images/placeholder.jpg')

@@ -26,14 +26,40 @@
                             <a class="nav-link" href="#">Account</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">Logout</a>
+                            <a class="nav-link" href="#" onclick="event.preventDefault();document.getElementById('js-logout-form').submit();">Logout</a>
                         </li>
+
+                        {#
+                            Attention : dans security.yalm firewalls:main:logout il faut rajouter :
+                            csrf_token_generator: Symfony\Component\Security\Csrf\CsrfTokenManagerInterface
+                            Ici le nom du token n'est pas libre ! Il doit correspondre par default à : "_csrf_token".
+                            Si on voulait l'appeler autrement alors il faut rajouter csrf_parameter: new_name.
+                            De même la valeur csrf_token('logout') n'est pas libre, si on voulait la changer il
+                            faudrait rajouter, csrf_token_id: new_value.
+                            On peut egalement faire passer le token en GET de ce formulaire :
+                            <form id="js-logout-form" method="post" style="display:none;"
+                                action="{{ path('app_logout') }}?_csrf_token={{ csrf_token('logout') }}" >
+                            </form>
+                            Voir carrement :
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ path('app_logout') }}?_csrf_token={{ csrf_token('logout') }}">Logout</a>
+                            </li>
+                            Encore plus simple il existe une fonction Twig logout_path() qui prend en argument le nom
+                            du firewalls et qui va s'occuper de generer le token et la route tout seul. Il existe
+                            egalement la fonction logout_url() :
+                             <li class="nav-item">
+                                <a class="nav-link" href="{{ logout_path('main')}}">Logout</a>
+                            </li>
+                        #}
+                        <form id="js-logout-form" method="post" action="{{ path('app_logout') }}" style="display:none;">
+                            <input type="hidden" value="{{ csrf_token('logout') }}" name="_csrf_token">
+                        </form>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="#">Login</a>
+                            <a class="nav-link" href=" {{ path('app_login') }}">Login</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#" >Register</a>
+                            <a class="nav-link" href="{{ path('app_register') }}" >Register</a>
                         </li>
                     {% endif %}
                 </ul>

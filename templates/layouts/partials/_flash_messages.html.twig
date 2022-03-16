@@ -3,7 +3,13 @@ Code provenant de :
 https://symfony.com/blog/new-in-symfony-3-3-improved-flash-messages
 #}
 
-{% for label, messages in app.flashes %}
+{#
+    Notre message tente de styliser des messages flash que nous n'avons pas défini :
+    On va donc rajouter pour quel type de message d'erreur flash on veut ce message en
+    rajoutant : (['success', 'error', 'info'])
+#}
+
+{% for label, messages in app.flashes(['success', 'error', 'info']) %}
     {% for message in messages %}
         <div class="alert alert-{{ label }}" role="alert">
             {{ message }}

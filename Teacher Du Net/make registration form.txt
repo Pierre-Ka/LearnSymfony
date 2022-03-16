@@ -1,0 +1,138 @@
+Pour creer un formulaire d'enregistrement Register : 
+s make:registration-form
+		uniqueEntity : yes
+		sendEmail for verifying user : yes
+		verifier les adresses anonymes : ???
+		adresse email utilisé pour envoyer les mails de confirmation : noreply@panterest.com
+		nom associé a l'adresse mail : panterest
+		utilisateur connecté automatiquement après inscription : yes
+On nous donne un ensemble d'étapes à suivre. Puis on nous indique la marche à suivre : 
+ 1) Install some missing packages:
+      composer require symfonycasts/verify-email-bundle
+ 2) In RegistrationController::verifyUserEmail():
+    * Customize the last redirectToRoute() after a successful email verification.
+    * Make sure you're rendering success flash messages or change the $this->addFlash() line.
+ 3) Review and customize the form, controller, and templates as needed.        
+ 4) Run "php bin/console make:migration" to generate a migration for the newly 
+added User::isVerified property.
+
+Donc on installe : composer require symfonycasts/verify-email-bundle
+On voit que 3 classes sont apparues : Controller/RegistrationController.php, Form/RegistrationFormType.php, Security/EmailVerifier.php. Dans User , une contrainte d'unicité et une nouvelle propriété isVerified ( + ses setters et getters) sont apparus. Il faudra donc faire une migration. 2 templates sont apparus dans le dossier registration/ confirmation_email.html.twig et register.html.twig
+
+On va dans .env et on repère : ###< symfony/mailer ###
+On copie et colle MAILER_DSN=smtp://localhost dans .env.local
+On fait notre migration : make:migrations, dotrine:migrations:migrate
+
+Là si on se rend sur la page Registrer et que l'on rempli le formulaire, on a une erreur : en effet 
+en bdd on a des champs obligatoires ( noms, prenoms, ect ... ).
+Il faut donc donner la possibilité de rentrer ces informations, on va modifier le RegistrationFormType.
+
+
+*************************** MAIL ***************************************************
+En plus du nouveau formulaire et du nouveau controlleur, on a eu une nouvelle classe crée nommée EmailVerifier dans src/Security/, elle possède 2 fonctions : sendEmailConfirmation et handleEmailConfirmation
+
+
+Src ----> Controller ----> RegistrationController : register()
+												--> verifyUserEmail()
+	 ---> Security ------> EmailVerifier : 	sendEmailConfirmation()														 -->   handleEmailConfirmation()
+
+Ensuite lorsqu'on s'enregistre, il n'y a pas de mail envoyé. En effet il faut faire un peu de configuration.
+ Voici le code dans le controller : 
+             // generate a signed url and email it to the user
+            $this->emailVerifier->sendEmailConfirmation('app_verify_email', $user,
+                (new TemplatedEmail())
+                    ->from(new Address('noreply@panterest.com', 'panterest'))
+                    ->to($user->getEmail())
+                    ->subject('Please Confirm your Email')
+                    ->htmlTemplate('registration/confirmation_email.html.twig')
+            );
+            // do anything else you need here, like send an email
+
+            return $userAuthenticator->authenticateUser(
+                $user,
+                $authenticator,
+                $request
+            );
+        }
+**********
+On s'inscrit sur https://mailtrap.io/inboxes
+ikanhiumalam@gmail.com
+MakanMakan
+Lorsqu'on clique sur notre application : 
+https://mailtrap.io/inboxes/1662658/messages
+On a l'integration qui apparait ( on pourrait choisir Symfony 5+ et copier ) : 
+Dans env.local. on change MAILER_DSN=smtp://localhost ( qui s'utilise si on a un serveur SMTP en local ce qui n'est pas notre cas ) par 
+MAILER_DSN=smtp://username:password@urlhote:port
+
+==> Et la ca marche pas ..............
+
+L'envoi de mail sur Symfony est gerer par Mailer.
+Si on va dans register() dans RegistrationController on a le code :
+    
+    // generate a signed url and email it to the user
+    $this->emailVerifier->sendEmailConfirmation('app_verify_email', $user,
+        (new TemplatedEmail())
+            ->from(new Address('noreply@panterest.com', 'panterest'))
+            ->to($user->getEmail())
+            ->subject('Please Confirm your Email')
+            ->htmlTemplate('emails/registration/confirmation.html.twig')
+    );
+    // do anything else you need here, like send an email
+
+    return $userAuthenticator->authenticateUser(
+        $user,
+        $authenticator,
+        $request
+    );
+On appelle donc la fonction sendEmailConfirmation et on lui passe 3 arguments : la route appelée, l'utilisateur et le template de l'email. Cette fonction fait : 
+        $signatureComponents = $this->verifyEmailHelper->generateSignature(
+            $verifyEmailRouteName,
+            $user->getId(),
+            $user->getEmail()
+        );
+        $context = $email->getContext();
+        $context['signedUrl'] = $signatureComponents->getSignedUrl();
+        $context['expiresAtMessageKey'] = $signatureComponents->getExpirationMessageKey();
+        $context['expiresAtMessageData'] = $signatureComponents->getExpirationMessageData();
+        $email->context($context);
+        $this->mailer->send($email);
+Les variables passées : signedUrl, expiresAtMessageKey, expiresAtMessageData se retrouvent au niveau du template. Ces contenus ont été générés via verifyEmailHelper (implementer par l'interface VerifyEmailHelperInterface qui définit 2 fonctions generateSignature validateEmailConfirmation ).
+On a un objet de type VerifyEmailSignatureComponents possedant 2 propriétés :
+'signedUrl' permet d'avoir un url signé et 'expiresAt' permet d'avoir un timestamp d'expiration. A quoi cela va servir ?
+Cela génère le lien sécurisé et difficilemment hackable à cliquer pour confirmer l'email :
+ex : 
+https://127.0.0.1:8000/verify/email?expires=4584651564961656&signature=461fgbrynentIFCYFGHve6&6545&fgbrn!6
+6HVVIfggV2Gv22u3kHbUY!KGubj&token=461fgbrynentIFCYFGHve6&6545&fgbrn!6zrgryjefzg6efF1e535et48
+
+On crée le $context de l'email, puis on va lui setter ces 2 variables ( 'signedUrl' et 'expiredAt' ). Puis on fois setter on va définir ce contexte comme contexte de l'email ( $email->context($context); ) puis on envoie le mail et on retourne :
+    return $userAuthenticator->authenticateUser(
+        $user,
+        $authenticator,
+        $request
+    );
+La methode authenticateUser() va gérer le token de confirmation
+
+Lorsque l'utilisateur se rend sur son adresse mail et clique sur le lien cela va appeler la fonction verifyUserEmail() du RegistrationController ( route 'app_verify_email') : 
+ 
+    $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+
+    try {
+        $this->emailVerifier->handleEmailConfirmation($request, $this->getUser());
+    } catch (VerifyEmailExceptionInterface $exception) {
+        $this->addFlash('verify_email_error', $translator->trans($exception->getReason(), [], 'VerifyEmailBundle'));
+
+        return $this->redirectToRoute('app_register');
+    }
+    $this->addFlash('success', 'Your email address has been verified.');
+    return $this->redirectToRoute('app_register');
+
+Cette fonction se contente de vérifier si l'utilisateur est connecté et si c'est bien le cas elle appelle emailVerifier->handleEmailConfirmation() et si il n'y a pas d'erreur alors elle redirige. Voyons handleEmailConfirmation(): 
+
+    $this->verifyEmailHelper->validateEmailConfirmation($request->getUri(), $user->getId(), $user->getEmail());
+    $user->setIsVerified(true);
+    $this->entityManager->persist($user);
+    $this->entityManager->flush();
+
+Si la confirmation est correcte, elle sette le isVerified a true.
+
+Une verification importante est de recuperer le lien envoyé et le copier dans l'url en modifiant le token ( ou la signature ) pour voir si cela marche ou pas.

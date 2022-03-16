@@ -29,6 +29,9 @@ class Pin
 {
     use Timestampable;
 
+    /* On pourrait definit une constante du type :
+    public const NUMBER_PINS_PAGES = 15; */
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]

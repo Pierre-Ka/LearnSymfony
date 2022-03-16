@@ -1,0 +1,11 @@
+DoctrineFixturesBundle
+composer require --dev doctrine/doctrine-fixtures-bundle
+
+Nelmio-Alice
+
+Zentruck-Foundry
+
+
+Dans le cadre d'un petit projet, on peut utiliser le site Online mockaroo.com
+Generer les datas en choisissant SQL, une fois le fichier télécharger le placer dans à la 
+racine du projet.
