@@ -7,6 +7,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\Security;
 use Symfony\Component\Security\Http\Authenticator\AbstractLoginFormAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\CsrfTokenBadge;
@@ -84,5 +85,19 @@ class LoginFormAuthenticator extends AbstractLoginFormAuthenticator
     protected function getLoginUrl(Request $request): string
     {
         return $this->urlGenerator->generate(self::LOGIN_ROUTE);
+    }
+
+    /*
+        Lors de la mise en place des droits d'acces, la redirection des personnes qui n'ont pas les droits d'acces
+        necessaires se fait via la methode start(). Ici on la redéfinie afin d'y incorporer un message flash.
+        On override donc la methode.
+     */
+    public function start(Request $request, AuthenticationException $authException = null ): Response
+    {
+
+        $request->getSession()->getFlashBag()->add('error', 'You need to log in first');
+        $url = $this->getLoginUrl($request);
+        return new RedirectResponse($url);
+
     }
 }

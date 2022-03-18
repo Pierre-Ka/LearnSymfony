@@ -48,7 +48,7 @@
                             </label>
                         </div>
                     </div>
-                    <a href="#">Forget password ?</a>
+                    <a href=" {{ path('app_forgot_password_request') }}">Forget password ?</a>
                 </div>
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
                 <button class="btn btn-lg w-100 btn-primary" type="submit">

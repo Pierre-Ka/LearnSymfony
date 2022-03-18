@@ -1,4 +1,4 @@
-********************************************************************************************************************* Tutoriel Securité Symfony *************
+********************************************************************************************************************* Tutoriel Securité Symfony ************* Authentification *************
 
 0 - Afficher un utilisateur connecté
 1 - Introduction à la sécurité
@@ -12,6 +12,8 @@
     4 - onAuthenticationFailure()
     5 - onAuthenticationSuccess()
 5 - RememberMe
+6 - Password Upgrade - Incomplet
+7 - Events listener on Symfony Security
 
 0 - AFFICHER UN UTILISATEUR CONNECTE : 
     - Twig = {{ app.user }}
@@ -25,6 +27,8 @@
             $this->security = $security;
         }
         puis dans le code : $this->security->getUser()
+    - Au niveau du code encore = si on a l'evenement , on peut acceder à l'utilisateur via le token : 
+    	$event->getToken()->getUser()->getFullName()
 
 1 - INTRODUCTION A LA SECURITE :
 
@@ -211,7 +215,12 @@
             [ new CsrfTokenBadge('authenticate', $request->request->get('_csrf_token')), ]
         );
     }
-    Il recupère l'email et sauvegarde l'email dans la session ( en cas d'erreur d'authentification ça permet de remettre l'email dans le champ ) via la const Security::LAST_USERNAME.
+    Il recupère l'email et sauvegarde l'email dans la session ( en cas d'erreur d'authentification ça permet de remettre l'email dans le champ ) via la const Security::LAST_USERNAME. 
+    On pourrait faire cela manuellemnt en faisant dans authentificate :
+    $request->getSession()->set('app_login_email', $request->request->get('email'));
+    Puis dans la view Twig : {{ app.session.get('app_login_email')}}
+    Si on l'avait précedement mis dans une constante LAST_EMAIL dans Security ; 
+    {{ app.session.get(constant('App\\Controller\\SecurityController::LAST_EMAIL'))}}
     Symfony a opéré un changement important avant on avait tout le traitement qui se déroulait dans cette partie authenticate() ( ancienne : getCredentials(), getuser(), checkCredentials()). Aujourd'hui on va générer un passport qui va être écouter par des Listeners et vérifié par différentes methodes. Ce passport prend en paramètre, premierement l'utilisateur ( sous forme de Badge), le password ( sous forme de Badge) et enfin des Badges additionnels ( comme le token, ect..)
 
     Si on va dans Passport on voit qu'il ne fait qu'ajouter les badges dans un tableau badges[].
@@ -348,59 +357,41 @@
     On pourrait egalement configurer un : always_remember_me
     Si on fait fait remember me, puis on ferme le navigateur et on refresh la page, on sera connecter. On fait inspecter -> Application -> Cookie ( pour notre domaine : https://127.0.0.1.8000) on verra notre Cookie REMEMBERME
 
+6 - PASSWORD UPGRADE -- Incomplet
+
+	On parle ici de PassportUpgrade qui était defini dans UserRepository. Cette fonction permet de restocker le password de temps en temps ( utile si chgmt d'algo ). Mais pour pouvoir le restocker encore faut-il le récuperer !. Pour cela ( tuto Honoré ) dans notre LoginFormAuthenticate, on doit inplements PasswordAuthenticatedUserInterface. Et on doit implementer qu'une seul methode  : 
+	public function getPassword(Request $request): ?string;
+	{   return $request->request->get('password', ''); }
+
+7 - EVENTS LISTENER IN SYMFONY SECURITY
+
+	La nouvelle version de Symfony nous offre une miriades d'écouteurs : 
+	https://symfony.com/doc/current/security.html#security-events
+
+	CheckPassportEvent ==> Dispatched after the authenticator created the security passport. Listeners of this event do the actual authentication checks (like checking the passport, validating the CSRF token, etc.)
+
+	AuthenticationTokenCreatedEvent ==> Dispatched after the passport was validated and the authenticator created the security token (and user). This can be used in advanced use-cases where you need to modify the created token (e.g. for multi factor authentication).
+
+	AuthenticationSuccessEvent ==> Dispatched when authentication is nearing success. This is the last event that can make an authentication fail by throwing an AuthenticationException.
+
+	LoginSuccessEvent ==> Dispatched after authentication was fully successful. Listeners to this event can modify the response sent back to the user.
+
+	LoginFailureEvent ==> Dispatched after an AuthenticationException was thrown during authentication. Listeners to this event can modify the error response sent back to the user.
+	Par exemple on pourra imaginer après 3 LoginFailureEvent, on bloque l'utilisateur pour 10min.
+
+	LogoutEvent ==> Dispatched just before a user logs out of your application. See Security.
+
+	TokenDeauthenticatedEvent ==> Dispatched when a user is deauthenticated, for instance because the password was changed. See Security.
+
+	SwitchUserEvent ==> Dispatched after impersonation is completed. See How to Impersonate a User.
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+**************************** ALLER PLUS LOIN **************************************************
 Creer un systeme d'authentification independant en Symfony : 
     Grafikart : 
         https://grafikart.fr/tutoriels/security-passport-symfony-1945
 
-En + :     
-Il recupère l'email et sauvegarde l'email dans la session ( en cas d'erreur d'authentification ça permet de remettre l'email dans le champ ) via la const Security::LAST_USERNAME.
-    On pourrait le faire manuellement en faisant dans authentificate :
-    $request->getSession()->set('app_login_email', $request->request->get('email'));
-    Puis dans la view Twig : 
-    {{ app.session.get('app_login_email')}}
-    Si on l'avait précedement mis dans une constante LAST_EMAIL dans Security ; 
-    {{ app.session.get(constant('App\\Controller\\SecurityController::LAST_EMAIL'))}}
 
-
-
-0 - On parle ici de PassportUpgrade qui était defini dans UserRepository. Cette fonction permet de restocker le password de temps en temps ( utile si chgmt d'algo ). Mais pour pouvoir le restocker encore faut-il le récuperer !. Pour cela ( tuto Honoré ) dans notre LoginFormAuthenticate, on doit inplements PasswordAuthenticatedUserInterface. Et on doit implementer qu'une seul methode  : 
-public function getPassword(Request $request): ?string;
-{   return $request->request->get('password', ''); }
-
-SECURITY EVENTS : 
-La nouvelle version de Symfony nous offre une miriades d'écouteurs : 
-https://symfony.com/doc/current/security.html#security-events
-
-CheckPassportEvent ==> Dispatched after the authenticator created the security passport. Listeners of this event do the actual authentication checks (like checking the passport, validating the CSRF token, etc.)
-
-AuthenticationTokenCreatedEvent ==> Dispatched after the passport was validated and the authenticator created the security token (and user). This can be used in advanced use-cases where you need to modify the created token (e.g. for multi factor authentication).
-
-AuthenticationSuccessEvent ==> Dispatched when authentication is nearing success. This is the last event that can make an authentication fail by throwing an AuthenticationException.
-
-LoginSuccessEvent ==> Dispatched after authentication was fully successful. Listeners to this event can modify the response sent back to the user.
-
-LoginFailureEvent ==> Dispatched after an AuthenticationException was thrown during authentication. Listeners to this event can modify the error response sent back to the user.
-Par exemple on pourra imaginer après 3 LoginFailureEvent, on bloque l'utilisateur pour 10min.
-
-LogoutEvent ==> Dispatched just before a user logs out of your application. See Security.
-
-TokenDeauthenticatedEvent ==> Dispatched when a user is deauthenticated, for instance because the password was changed. See Security.
-
-SwitchUserEvent ==> Dispatched after impersonation is completed. See How to Impersonate a User.

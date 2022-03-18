@@ -77,6 +77,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'boolean')]
     private $isVerified = false;
 
+
     public function __construct()
     {
         /*
@@ -245,5 +246,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->isVerified = $isVerified;
 
         return $this;
+    }
+
+    /* Propriété crée pour renvoyé un avatar : page account/show.html.twig */
+    public function getGravatarUrl(int $size = 100): string
+    {
+        return 'https://www.gravatar.com/avatar/'. md5(strtolower(trim($this->getEmail()))) .'/?s=' . $size;
+        /*
+            Equivaut à return sprintf('https://www.gravatar.com/avatar/%s/?s=%d',
+                                        md5(strtolower(trim($this->getEmail()))), $size);
+         */
     }
 }

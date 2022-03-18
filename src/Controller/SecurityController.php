@@ -7,6 +7,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 
+
 class SecurityController extends AbstractController
 {
     #[Route(path: '/login', name: 'app_login')]
@@ -43,6 +44,11 @@ class SecurityController extends AbstractController
         firewalls:main:logout nommé csrf_token_generator: Symfony\Component\Security\Csrf\CsrfTokenManagerInterface
 
         Rappel : sans token ou avec token, on a pas besoin de contenu, Symfony se chargera de nous deconnecter.
+
+        Maintenant on souhaite ajouter un message flash lors de la deconnexion. Mais comment faire puisque tout est géré
+        par Symfony, on a donc pas la possibilité de rajouter du code ici. Pour cela on va écouter l'evenement
+        Logout Event et lorsque l'evenement est déclencher on va appeler une callback affichant notre message flash
+        et redirigeant vers la page d'accueil. Pour cela on fait s make:subscriber
     */
     #[Route(path: '/logout', name: 'app_logout', methods: "POST")]
     public function logout(): void

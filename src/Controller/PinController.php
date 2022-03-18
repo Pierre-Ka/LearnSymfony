@@ -6,6 +6,8 @@ use App\Entity\Pin;
 use App\Form\PinType;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Security;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Request;
@@ -43,6 +45,8 @@ class PinController extends AbstractController
     }
 
     #[Route('/pins/create', name: 'app_pins_create', methods: "GET|POST", priority: "10")]
+    /* #[Security("is_granted('ROLE_USER') && user.isVerified() == true")] */
+    #[isGranted("PIN_CREATE")]
     public function create(Request $request, EntityManagerInterface $em, UserRepository $userRepo): Response
     {
         $pin = new Pin;
@@ -93,7 +97,15 @@ class PinController extends AbstractController
         Pour que cela marche il faut autoriser override des methodes http :
          config->package->framework.yaml->http_method_override : mettre à true
     */
+
     #[Route('/pins/{id<\d+>}/edit', name: 'app_pins_edit', methods: "GET|PUT")]
+
+    /*
+        On a d'abord effectué les verifications de conditions dans un Security avant de créer un Voter
+        #[Security("is_granted('ROLE_USER') && user.isVerified() == true && pin.getUser() == user")]
+        #[Security("is_granted('PIN_EDIT', pin)")]
+    */
+    #[isGranted('PIN_EDIT', subject :'pin')]
     public function edit(Request $request, Pin $pin,  EntityManagerInterface $em): Response
     {
         $form = $this->createForm(PinType::class, $pin, [
@@ -130,6 +142,7 @@ class PinController extends AbstractController
         pins/{id[0-9]} avec la methode GET et le nom app_pins_show, la fonction show sera appelée
     */
     #[Route('/pins/{id<\d+>}', name: 'app_pins_delete', methods: "DELETE")]
+    #[isGranted('PIN_EDIT', subject :'pin')]
     public function delete(Request $request, Pin $pin,  EntityManagerInterface $em): Response
     {
         /*

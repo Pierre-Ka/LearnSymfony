@@ -15,6 +15,12 @@ use Symfony\Component\Validator\Constraints\IsTrue;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
+/*
+    On pourrait créer une propriété plainPassword dans la classe User ( sans le mapper en bdd ).
+    Le password sera alors stocké en clair, il faudra setter la methode eraseCredentials
+    { $this->plainPassword = null ;} et appeler cette methode juste après avoir hasher le password et l'avoir
+    sauvegarder.
+ */
 class RegistrationFormType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void

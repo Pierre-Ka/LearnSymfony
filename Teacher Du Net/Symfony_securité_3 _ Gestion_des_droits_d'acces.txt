@@ -1,0 +1,269 @@
+1 - MANIERE NAIVE 
+2 - LA PROPRIETE ROLES DANS USER
+3 - LE CONTROL ACCESS DE LA CONFIGURATION
+4 - LA FONCTION denyAccessUnlessGranted()
+5 - isGranted
+6 - Security
+7 - LE SYSTEME DE VOTER DE SYMFONY
+8 - AFFICHAGE TWIG 
+9 - VERIFIER UN UTILISATEUR DANS LE CODE 
+10 - AUTHENTICATEDVOTER
+11 - HIERARCHIE DES ROLES
+
+
+
+1 - MANIERE NAIVE :
+	De manière naive, on va gerer les droits d'accès comme cela : 
+	Pour toutes les pages reservées aux membres connectés, le controlleur va implementer : 
+	        if (!$this->getUser()) {
+	            $this->addFlash('error', 'You need to log in first !'); 
+	            return $this->redirectToRoute('app_login');
+	         } 
+	Pour les pages reservées aux membres connectés et vérifiés ( du type pins_create ), on aura : 
+	        if (!$this->getUser()) {
+	            $this->addFlash('error', 'You need to log in first !'); 
+	            return $this->redirectToRoute('app_login');
+	         } 
+	        if (!$this->getUser()->isVerified()) {
+	            $this->addFlash('error', 'You need to have a verified account !'); 
+	            return $this->redirectToRoute('app_home');
+	         } 	
+	Pour les pages reservées aux membres vérifiés et à l'auteur du pin : typiquement la page d'edition et de suppression du pin : 
+	        if (!$this->getUser()) {
+	            $this->addFlash('error', 'You need to log in first !'); 
+	            return $this->redirectToRoute('app_login');
+	         } 
+	        if (!$this->getUser()->isVerified()) {
+	            $this->addFlash('error', 'You need to have a verified account !'); 
+	            return $this->redirectToRoute('app_home');
+	         }
+	        if ($pin->getUser() != $this->getUser()) {
+	            $this->addFlash('error', 'Acces forbidden'); 
+	            return $this->redirectToRoute('app_home');
+	         }
+
+	L'exception createAccessDeniedException(). Voici une autre façon d'écrire :
+	    if (!$this->getUser()->isVerified()) {
+	        $this->addFlash('error', 'You need to have a verified account !'); 
+	        return $this->redirectToRoute('app_home');
+	     }
+	On peut écrire :
+	    if (!$this->getUser()->isVerified()) {
+	        throw $this->createAccessDeniedException('You need to have a verified account') ;
+	     } 
+	On peut egalement créer une page personnalisé 403 ( sur le modèle de 404 )
+
+2 - LA PROPRIETE ROLES DANS USER : 
+
+	Tout cela fait beaucoup de duplication de code. Symfony nous offre un moyen beaucoup plus simple et
+	efficace de gerer les autorisations. Pour cela il faut s'assurer que le champ SQL de roles[] comporte 
+	bien du JSON. Pour cela il faut setter la version de MySQL dans la variable : 
+	# DATABASE_URL="mysql://root:root@127.0.0.1:3306/panterest_dev?serverVersion=8.0"
+	Dans notre classe User on a : 
+	    public function getRoles(): array
+	    {
+	        $roles = $this->roles;
+	        // guarantee every user at least has ROLE_USER
+	        $roles[] = 'ROLE_USER';
+	        return array_unique($roles);
+	    }
+	On donne un role à tous nos utilisateurs. Ici ils auront tous le rôle 'ROLE_USER'. La propriété role représente un tableau ainsi un admin aura par exemple : 
+	$user->setRoles(['ROLE_USER', 'ROLE_AUTHOR', ..., 'ROLE_ADMIN']). On a vu que le ROLE_USER est setter automatiquement. La gestion des droits d'acces se fait par l'orientation par les rôles.
+	Symfony offre de nombreuses différentes façons d'arriver au même resultat. Tour d'horizon de ces différentes façons.
+
+3 - LE CONTROL ACCESS DE LA CONFIGURATION :
+
+	Une première methode peut se faire via la configuration config/package/security.yaml
+	Pour cela on va dans security.yaml : 
+	access_control:
+	        # - { path: ^/admin, roles: ROLE_ADMIN }
+	        # - { path: ^/profile, roles: ROLE_USER }
+	En décommentant on permet l'acces aux routes commencant par /admin (^/admin ) seulement aux utilisateurs ayant le ROLE_ADMIN.
+	Ceci est adapté lorsque l'on souhaite proteger tout un panel de notre application ( ex : ici la section admin ). A noter que comme les Routes, l'ordre est important ici ( si il y avait deux paths similaires, il allait matcher le premier trouvé ).
+	On pourrait par exemple bloquer l'ensemble de son site sauf le login comme cela : 
+	access_control:
+        - { path: ^/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/, roles: [ROLE_USER, ROLE_ADMIN] }
+        - { path: ^/account/edit$, roles: IS_AUTHENTICATED_FULLY }, ect..
+
+4 - LA FONCTION denyAccessUnlessGranted() : 
+
+	Si on souhaite gerer les droits d'acces par route et non plus par controlleurs, on voit que chaque controlleurs héritent de abstractController qui possède une methode denyAccessUnlessGranted().
+	En fait dans chaque methode du Controller on pourrait faire : 
+	$this->denyAccessUnlessGranted('ROLE_ADMIN');
+	denyAccessUnlessGranted() prend en premier argument l'attribut obligatoire, en second le subject et en troisieme le message tout deux optionnels : 
+	$this->denyAccessUnlessGranted('ROLE_ADMIN', null, 'Ooops access not possible bro');
+
+	Depuis PHP 8, on peut spécifier les arguments donc l'ordre n'importe plus : 
+	$this->denyAccessUnlessGranted(attribute:'ROLE_ADMIN', message:'Ooops access not possible bro');
+	On peut egalement faire un mix : 
+	$this->denyAccessUnlessGranted('ROLE_ADMIN', message:'Ooops access not possible bro');
+	Il attend un role en première position puis on précise en seconde position que l'on donne un message.
+
+	Après la mise en place du Voter ( voir ci-dessous). Il est possible d'effectuer la verification du Voter avec denyAccessUnlessGranted(). Dans ce cas-là, on n'utilise ni @isGranted ni @Security :
+	$this->denyAccessUnlessGranted('PIN_EDIT', $pin);
+
+5 - L'ANNOTATION/ATTRIBUT : isGranted
+
+	use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
+	Il existe dans la classe, une manière d'avoir le même resultat que si on faisant 
+	access_control: { path: ^/admin, roles: ROLE_ADMIN }. On suppose ici que la classe à une route globale commençant par /admin. Pour cela on va utiliser un attribut/annotation nommé isGranted qu'il faut importer ( use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted; )
+	L'annotation se passe à l'ensemble de la classe ( donc avant class ) : 
+	#[isGranted('ROLE_ADMIN')] 
+	Mais si l'on veut, on peut egalement le spécifier juste à une seule route, c'est donc une manière très flexible de définir les droits d'acces.
+
+	Les utilisateurs qui souhaitent se rendre sur une page sur laquelle il n'ont pas les droits d'acces seront redirigés par la methode start() (AbstractLoginFormAuthenticator). On pourrait si on le souhaite redefinir la methode dans notre LoginFormAuthenticator.
+
+6 - L'ANNOTATION/ATTRIBUT : Security
+
+	use Sensio\Bundle\FrameworkExtraBundle\Configuration\Security;
+	Il existe une annotation autre que isGranted qui englobe isGranted : c'est Security ( Sensio\Bundle\FrameworkExtraBundle\Configuration\Security ).
+	En effet : 
+	#[isGranted('ROLE_USER')]   égale à
+	#[Security("is_granted('ROLE_USER')")]
+
+	L'avantage de l'annotation Security est d'enchainer les conditions : 
+	#[Security("is_granted('ROLE_USER') && user.isVerified() == true")]
+
+	Avec l'annotation Security , l'ordre a de l'importance ! 
+	#[Security("user.isVerified() == true && is_granted('ROLE_USER')")] renverra une erreur
+	vu qu'avait de verifier l'utilisateur, on ne peut pas appeler user.
+
+	Le composant Security prend 3 arguments : 
+	l'ensemble des conditions ([]), un message et le status code.
+	On peut ainsi joindre aux conditions d'acces le message a afficher en cas d'erreur et le status code à envoyer ( ex : par défaut 403, 404 ) que l'on peut personnaliser si on le souhaite.
+	#[Security("is_granted('ROLE_USER') && user.isVerified() == true", message:'Hello', statusCode:404)]
+	#[Security("is_granted('POST_SHOW', post)", statusCode: 404, message: 'Resource not found.')]
+
+	Supposons que l'on souhaite effectuer la verification 
+	#[Security("is_granted('ROLE_USER') && user.isVerified() == true && pin.getUser() == user")]
+
+7 - LE SYSTEME DE VOTERS DE SYMFONY
+
+	A chaque fois qu'on utilise une methode fournie par Symfony, on utilise le systeme de Voters de Securité de Symfony. A chaque fois que l'on utilise un rôle Symfony utilise le Security Voter :
+	Symfony\Component\Security\Core\Authorization\Voter\RoleVoter, chaque fois que l'on utilise une expression il utilise ExpressionVoter, il y a AuthenticateVoter, ect..
+
+	Pour comprendre le systeme de Voters il faut comprendre le systeme de routage : lorsqu'une requete est effectué ( quel soit get, post, put, ect... ), elle est d'abord analysée par le systeme de routeur pour trouver le path qui match. De même le systeme de Voter représente une surcouche Symfony, qui va analyser la requete en fonction des droits d'acces de l'utilisateur. Ainsi de manière automatiquement si le path est reservé aux ROLE_ADMIN, elle va exclure les autres users.
+	L'interêt de comprendre cela reside dans le fait que l'on peut créer nos propres Voters.
+
+	En fait, il s'agit ni plus ni moins que de réécrire une longue verification
+	#[Security("is_granted('ROLE_USER') && user.isVerified() == true && pin.getUser() == user")]
+	{% if is_granted('ROLE_USER') and app.user.isVerified and app.user == pin.user %}
+	Au niveau d'une classe Voter, afin de passer quelque chose de plus simple.
+
+	On peut créer un voter avec s make:voter.
+	Cela va créer un fichier dans src/Security/Voter/NotreVoter.php
+	Cette classe comporte deux methodes : supports() et voteOnAttribute().
+	    public const EDIT = 'POST_EDIT';
+	    public const VIEW = 'POST_SHOW';
+
+	    protected function supports(string $attribute, $subject): bool
+	    {
+	        // replace with your own logic
+	        // https://symfony.com/doc/current/security/voters.html
+	        return in_array($attribute, [self::EDIT, self::VIEW])
+	            && $subject instanceof \App\Entity\Pin;
+	    }
+	supports() verifie les conditions d'acces cad si la route a été appelée. On imagine une route ayant comme condition d'acces : #[Security("is_granted('POST_EDIT', post)")]. Cette route sera verifié par le PostVoter
+	Ici on vérifie deux choses, si la route appelée s'appelle POST_EDIT ou POST_SHOW et si un objet $post a été passé. ( il faudra donc pas oublier de le passer au controlleur (Post $post)).
+	Si c'est la cas supports() renvoie true et voteOnAttribute() est appelée.
+	    protected function voteOnAttribute(string $attribute, $subject, TokenInterface $token): bool
+	    {
+	        $user = $token->getUser();
+	        if (!$user instanceof UserInterface) {	return false;	}
+	        switch ($attribute) {
+	            case self::EDIT: // On fait nos verifs
+	                break;
+	            case self::VIEW: // On fait nos verifs
+	                break;
+	        }
+	        return false;
+	    }
+	Par exemple : case 'PIN_EDIT': return $user->isVerified() && $user == $subject->getUser();
+	Vu que l'on a un return, on a pas besoin du break ; 
+
+8 - AFFICHAGE TWIG :
+
+	On peut dans Twig reservé des parties à l'auteur du pin avec : {% if app.user == pin.user %}
+
+	Au niveau de Twig, on peut restreindre l'acces à certaines partie de la page en fonction du rôle en utilisant is_granted()
+		{% if is_granted('ROLE_ADMIN') %}
+			<p>Blabla</p>
+		{% endif %}
+
+	Au niveau de twig cela donne, on peut egalement enchaine les conditions : 
+	{% if is_granted('ROLE_USER') and app.user.isVerified and app.user == pin.user %}
+		<p>Cool</p>
+	{% endif %}
+	IMPORTANT !! Twig ne connait pas &&. Il faut mettre 'and' (ou 'or')
+
+	Ainsi que evidemment les conditions liées à nos Voters : 
+	{% if is_granted('PIN_EDIT', pin) %}
+
+9 - VERIFIER UN UTILISATEUR DANS LE CODE :
+
+	Le composant Security ( Symfony\Component\Security\Core\Security  ) est une classe possedant
+	3 methodes : getUser(), isGranted() et getToken().
+	On a vu que l'on pouvait recupérer l'utilisateur ou bien la session à partir de ce composant, on peut egalement verifier le rôle de l'utilisateur :
+	public __construct(Security $security)
+	{
+		if ($security->isGranted('ROLE_ADMIN'))
+		{ blabla , ex : throw new AccessDeniedException() ; }
+	}
+
+10 - AUTHENTICATEDVOTER
+
+	https://symfony.com/doc/current/security.html#checking-to-see-if-a-user-is-logged-in-is-authenticated-fully
+	Nous dit : 
+	You can use IS_AUTHENTICATED_FULLY anywhere roles are used: like access_control or in Twig.
+
+	IS_AUTHENTICATED_FULLY isn't a role, but it kind of acts like one, and every user that has logged in will have this. Actually, there are some special attributes like this:
+
+	IS_AUTHENTICATED_REMEMBERED: All logged in users have this, even if they are logged in because of a "remember me cookie". Even if you don't use the remember me functionality, you can use this to check if the user is logged in.
+	IS_AUTHENTICATED_FULLY: This is similar to IS_AUTHENTICATED_REMEMBERED, but stronger. Users who are logged in only because of a "remember me cookie" will have IS_AUTHENTICATED_REMEMBERED but will not have IS_AUTHENTICATED_FULLY.
+	IS_REMEMBERED: Only users authenticated using the remember me functionality, (i.e. a remember-me cookie).
+	IS_IMPERSONATOR: When the current user is impersonating another user in this session, this attribute will match.
+
+	Symfony nous donne 4 états d'authentification : ce ne sont pas des rôles mais il agissent de la même manière. IS_IMPERSONATOR consiste à impersonner un utilisateur, cela veut dire qu'un administrateur se connecte à la place d'un utilisateur et accède a son compte afin de resoudre un problème. IS_REMEMBERED seuls les utilisateurs qui ont été authentifier en utilisant la case Remember_me ( cookie ). IS_AUTHENTICATED_REMEMBERED tous les utilisateurs connectés vont avoir ceci.
+	IS_AUTHENTICATED_FULLY tous les utilisateurs sauf ceux qui ont été connectés avec le cookie. Ainsi si quelqu'un se connecte sur l'ordinateur de quelqu'un d'autre gràce à son cookie, il ne pourra pas acceder à la page avec la permission IS_AUTHENTICATED_FULLY. Typiquement les pages de changements de mot de passe, ect... 
+
+11 - HIERARCHIE DES ROLES : 
+
+	Normalement on a des rôles simples ( ROLE_USER, ROLE_ADMIN, ect..)
+	Mais pour des applications complexes, on peut avoir 
+
+	access_control:
+        - { path: ^/blabla, roles: blabla }
+	role_hierarchy : 
+		ROLE_PROF : [ DONNER_UN_COURS, DONNER_NOTE, DONNER_RETENUE ]
+		ROLE_ELEVE : [ SUIVRE_UN_COURS, DONNER_UN_EXPOSE ]
+
+	Il s'agit de rôles regroupant des rôles ainsi le ROLE_PROF possède tous les rôles qui
+	y sont définis.
+
+	Ce qui est interressant ici, c'est que si je rajoute un rôle à un prof, je n'ai pas à modifier 
+	la bdd mais juste à le rajouter ici dans security.yaml. De la même manière pour retirer un rôle.
+
+12 - IMPERSONNISATION :
+
+	Il faut setter la config : 
+	security : 
+		firewalls : 
+			main : 
+				switch_user : true
+	On pourra se connecter comme un autre utilisateur. 
+	1 - Il faut rajouter dans l'url ?_switch_user=l'username_de_la_personne_impersonnée.
+	2 - L'utilisateur qui se connecte doit avoir un role : ROLE_ALLOWED_TO_SWITCH
+	On peut définir ici une hierarchie : 
+	role_hierarchy : 
+		ROLE_ADMIN : [ ROLE_USER, ROLE_ALLOWED_TO_SWITCH ]
+
+	Pour revenir sur son propre compte on peut utiliser : 
+	http://example.com/somewhere?_switch_user=_exit
+	Ou on peut rajouter juste avant la navigation dans le layouts de base : 
+	{% if is_granted('IS_IMPERSONATOR') %}
+		<div class="alert alert-warning">
+    		<a href="{{ impersonation_exit_path(path('homepage') ) }}">Exit impersonation</a>
+    	</div>
+	{% endif %}
+
